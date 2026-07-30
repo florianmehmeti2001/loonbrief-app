@@ -291,6 +291,6 @@ with tab4:
 # --- Credits Footer ---
 st.markdown("---")
 st.markdown(
-    "<p style='text-align: center; color: gray; font-size: 14px;'>Gemaakt door Florian 🚂 — Wagon Plastron Edition</p>",
+    "<p style='text-align: center; color: gray; font-size: 14px;'>Gemaakt door Florian 🚂 — Om je bankrekening veilig te houden</p>",
     unsafe_allow_html=True
 )
