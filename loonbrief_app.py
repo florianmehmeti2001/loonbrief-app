@@ -4,8 +4,9 @@ from datetime import time
 
 st.set_page_config(page_title="Wagon Plastron - Looncalculator", layout="wide")
 
-# 1. Standaard waarden dictionary (kledij standaard op 1)
+# 1. Standaard waarden dictionary
 standaard_waarden = {
+    'gebruik_voorbeeld': False,
     'statuut': 'Student',
     'uurloon': 0.0,
     'hotel': 'NEE',
@@ -39,17 +40,56 @@ def reset_alle_velden():
 # Sidebar met instellingen
 with st.sidebar:
     st.header("⚙️ Instellingen")
-    st.selectbox("Kies je statuut", ["Student", "Flexi", "Extra (Horeca)"], key='statuut')
-    st.number_input("Basis Uurloon (€)", value=0.0, step=0.10, key='uurloon')
-    st.selectbox("Aantal reizen/shiften deze week", [1, 2, 3], key='aantal_shiften')
-    st.radio("Hotelovernachting?", ["JA", "NEE"], key='hotel')
-    st.number_input("Aantal dagen kledijvergoeding", min_value=0, max_value=10, key='kledij_aantal')
-    st.number_input("Declaraties (€)", min_value=0.0, step=1.0, key='declaraties')
+    
+    # De knop om de voorbeeldwaarden uit de foto's te vergrendelen/ontgrendelen
+    st.checkbox("📌 Gebruik voorbeeld van foto's", key='gebruik_voorbeeld')
     
     st.markdown("---")
-    if st.button("🧹 Reset alle cellen"):
-        reset_alle_velden()
-        st.rerun()
+
+    # Als het voorbeeld is aangevinkt, overschrijven we de sessiewaarden direct
+    if st.session_state.gebruik_voorbeeld:
+        st.session_state.statuut = "Extra (Horeca)"
+        st.session_state.uurloon = 15.97
+        st.session_state.aantal_shiften = 2
+        st.session_state.hotel = "JA"
+        st.session_state.kledij_aantal = 3
+        st.session_state.declaraties = 18.00
+        
+        for i in [1, 2]:
+            st.session_state[f'h{i}_shift'] = "PRS"
+            st.session_state[f'h{i}_f1'] = "ATM"
+            st.session_state[f'h{i}_f2'] = "Conducteur"
+            st.session_state[f'h{i}_start_u'] = 7
+            st.session_state[f'h{i}_start_m'] = 35
+            st.session_state[f'h{i}_einde_u'] = 12
+            st.session_state[f'h{i}_einde_m'] = 30
+            st.session_state[f'h{i}_feestdag'] = False
+            st.session_state[f'h{i}_zondag'] = False
+            
+            st.session_state[f't{i}_shift'] = "PRS"
+            st.session_state[f't{i}_f1'] = "ATM"
+            st.session_state[f't{i}_f2'] = "Conducteur"
+            st.session_state[f't{i}_start_u'] = 15
+            st.session_state[f't{i}_start_m'] = 10
+            st.session_state[f't{i}_einde_u'] = 21
+            st.session_state[f't{i}_einde_m'] = 50
+            st.session_state[f't{i}_feestdag'] = False
+            st.session_state[f't{i}_zondag'] = (i == 2) # Zondag aangevinkt bij terugrit shift 2
+
+    is_locked = st.session_state.gebruik_voorbeeld
+
+    st.selectbox("Kies je statuut", ["Student", "Flexi", "Extra (Horeca)"], key='statuut', disabled=is_locked)
+    st.number_input("Basis Uurloon (€)", value=15.97, step=0.10, key='uurloon', disabled=is_locked)
+    st.selectbox("Aantal reizen/shiften deze week", [1, 2, 3], key='aantal_shiften', disabled=is_locked)
+    st.radio("Hotelovernachting?", ["JA", "NEE"], key='hotel', disabled=is_locked, horizontal=True)
+    st.number_input("Aantal dagen kledijvergoeding", min_value=0, max_value=10, key='kledij_aantal', disabled=is_locked)
+    st.number_input("Declaraties (€)", min_value=0.0, step=1.0, key='declaraties', disabled=is_locked)
+    
+    st.markdown("---")
+    if not is_locked:
+        if st.button("🧹 Reset alle cellen"):
+            reset_alle_velden()
+            st.rerun()
 
 st.title("🚆 Wagon Plastron — Looncalculator")
 
@@ -132,7 +172,6 @@ for i in range(1, st.session_state.aantal_shiften + 1):
         else:
             totaal_150 += o_shift
     else:
-        # Losse ritten / andere bestemmingen apart behandelen
         h_w = min(11.0, h_netto) if h_shift != "H.L.P." else 0.0
         h_o = max(0.0, h_netto - 11.0) if h_shift != "H.L.P." else 0.0
         t_w = min(11.0, t_netto) if t_shift != "H.L.P." else 0.0
@@ -234,41 +273,41 @@ for i in range(1, st.session_state.aantal_shiften + 1):
 
     with col1:
         st.subheader("🚆 Heenrit")
-        st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key=f'h{i}_shift')
-        st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key=f'h{i}_f1')
-        st.selectbox("Functie 2", ["Conducteur", "Geen"], key=f'h{i}_f2')
+        st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key=f'h{i}_shift', disabled=is_locked)
+        st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key=f'h{i}_f1', disabled=is_locked)
+        st.selectbox("Functie 2", ["Conducteur", "Geen"], key=f'h{i}_f2', disabled=is_locked)
         
         st.text("Start shift")
         hs1, hs2 = st.columns(2)
-        hs1.selectbox("Uur", hours_list, key=f'h{i}_start_u', format_func=lambda x: f"{x:02d}u")
-        hs2.selectbox("Min", minutes_list, key=f'h{i}_start_m', format_func=lambda x: f"{x:02d}m")
+        hs1.selectbox("Uur", hours_list, key=f'h{i}_start_u', format_func=lambda x: f"{x:02d}u", disabled=is_locked)
+        hs2.selectbox("Min", minutes_list, key=f'h{i}_start_m', format_func=lambda x: f"{x:02d}m", disabled=is_locked)
         
         st.text("Einde shift")
         he1, he2 = st.columns(2)
-        he1.selectbox("Uur", hours_list, key=f'h{i}_einde_u', format_func=lambda x: f"{x:02d}u")
-        he2.selectbox("Min", minutes_list, key=f'h{i}_einde_m', format_func=lambda x: f"{x:02d}m")
+        he1.selectbox("Uur", hours_list, key=f'h{i}_einde_u', format_func=lambda x: f"{x:02d}u", disabled=is_locked)
+        he2.selectbox("Min", minutes_list, key=f'h{i}_einde_m', format_func=lambda x: f"{x:02d}m", disabled=is_locked)
         
-        st.checkbox("Feestdag?", key=f'h{i}_feestdag')
-        st.checkbox("Zondag?", key=f'h{i}_zondag')
+        st.checkbox("Feestdag?", key=f'h{i}_feestdag', disabled=is_locked)
+        st.checkbox("Zondag?", key=f'h{i}_zondag', disabled=is_locked)
 
     with col2:
         st.subheader("🚆 Terugrit")
-        st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key=f't{i}_shift')
-        st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key=f't{i}_f1')
-        st.selectbox("Functie 2", ["Conducteur", "Geen"], key=f't{i}_f2')
+        st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key=f't{i}_shift', disabled=is_locked)
+        st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key=f't{i}_f1', disabled=is_locked)
+        st.selectbox("Functie 2", ["Conducteur", "Geen"], key=f't{i}_f2', disabled=is_locked)
         
         st.text("Start shift")
         ts1, ts2 = st.columns(2)
-        ts1.selectbox("Uur", hours_list, key=f't{i}_start_u', format_func=lambda x: f"{x:02d}u")
-        ts2.selectbox("Min", minutes_list, key=f't{i}_start_m', format_func=lambda x: f"{x:02d}m")
+        ts1.selectbox("Uur", hours_list, key=f't{i}_start_u', format_func=lambda x: f"{x:02d}u", disabled=is_locked)
+        ts2.selectbox("Min", minutes_list, key=f't{i}_start_m', format_func=lambda x: f"{x:02d}m", disabled=is_locked)
         
         st.text("Einde shift")
         te1, te2 = st.columns(2)
-        te1.selectbox("Uur", hours_list, key=f't{i}_einde_u', format_func=lambda x: f"{x:02d}u")
-        te2.selectbox("Min", minutes_list, key=f't{i}_einde_m', format_func=lambda x: f"{x:02d}m")
+        te1.selectbox("Uur", hours_list, key=f't{i}_einde_u', format_func=lambda x: f"{x:02d}u", disabled=is_locked)
+        te2.selectbox("Min", minutes_list, key=f't{i}_einde_m', format_func=lambda x: f"{x:02d}m", disabled=is_locked)
         
-        st.checkbox("Feestdag?", key=f't{i}_feestdag')
-        st.checkbox("Zondag?", key=f't{i}_zondag')
+        st.checkbox("Feestdag?", key=f't{i}_feestdag', disabled=is_locked)
+        st.checkbox("Zondag?", key=f't{i}_zondag', disabled=is_locked)
 
     st.markdown("---")
 
