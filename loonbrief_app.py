@@ -280,4 +280,3 @@ with tab4:
         df_vak = pd.DataFrame([
             ["Vakantiegeld", f"€ {totaal_vakantiegeld:.2f}"],
         ], columns=["Onderdeel", "Bedrag (€)"])
-        st.table(df_vak)
