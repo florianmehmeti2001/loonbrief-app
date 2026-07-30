@@ -4,7 +4,7 @@ from datetime import time
 
 st.set_page_config(page_title="Wagon Plastron - Looncalculator", layout="wide")
 
-# 1. Standaard waarden dictionary (leeg / op nul bij opstarten)
+# 1. Standaard waarden dictionary
 standaard_waarden = {
     'statuut': 'Student',
     'uurloon': 0.0,
@@ -15,12 +15,10 @@ standaard_waarden = {
     'h_shift': 'H.L.P.', 'h_f1': 'Steward', 'h_f2': 'Geen',
     'h_start': time(0, 0), 'h_einde': time(0, 0),
     'h_zondag': False, 'h_feestdag': 'NEE',
-    'h_prsbln': 0, 'h_bruprg': 0,
     # Terugrit
     't_shift': 'H.L.P.', 't_f1': 'Steward', 't_f2': 'Geen',
     't_start': time(0, 0), 't_einde': time(0, 0),
     't_zondag': False, 't_feestdag': 'NEE',
-    't_prsbln': 0, 't_bruprg': 0,
 }
 
 for key, val in standaard_waarden.items():
@@ -32,7 +30,7 @@ def reset_alle_velden():
         if key in st.session_state:
             del st.session_state[key]
 
-# Sidebar met instellingen (Statuten in volgorde: Student, Flexi, Extra)
+# Sidebar met instellingen
 with st.sidebar:
     st.header("⚙️ Instellingen")
     st.selectbox("Kies je statuut", ["Student", "Flexi", "Extra (Horeca)"], key='statuut')
@@ -48,7 +46,7 @@ with st.sidebar:
 
 st.title("🚆 Wagon Plastron — Looncalculator")
 
-# 2. Urenberekening functie per rit met H.L.P., Zondag en Feestdag check
+# 2. Urenberekening functie per rit
 def bereken_rit_uren(shift, start, einde, is_zondag, feestdag):
     if shift == "H.L.P.":
         return 0.0, 0.0, 0.0, 0.0
@@ -94,16 +92,23 @@ u = st.session_state.uurloon
 atm_count = (1 if st.session_state.h_f1 == "ATM" and st.session_state.h_shift != "H.L.P." else 0) + (1 if st.session_state.t_f1 == "ATM" and st.session_state.t_shift != "H.L.P." else 0)
 tm_count = (1 if st.session_state.h_f1 == "TM" and st.session_state.h_shift != "H.L.P." else 0) + (1 if st.session_state.t_f1 == "TM" and st.session_state.t_shift != "H.L.P." else 0)
 
-bru_count = (st.session_state.h_bruprg if st.session_state.h_shift != "H.L.P." else 0) + (st.session_state.t_bruprg if st.session_state.t_shift != "H.L.P." else 0)
-prs_count = (st.session_state.h_prsbln if st.session_state.h_shift != "H.L.P." else 0) + (st.session_state.t_prsbln if st.session_state.t_shift != "H.L.P." else 0)
+# Automatische berekening conducteurspremies op basis van Functie 2 en Bestemming
+h_prs_count = 1 if (st.session_state.h_f2 == "Conducteur" and st.session_state.h_shift in ["PRS", "BLN"]) else 0
+h_bru_count = 1 if (st.session_state.h_f2 == "Conducteur" and st.session_state.h_shift in ["DD", "PRG"]) else 0
+
+t_prs_count = 1 if (st.session_state.t_f2 == "Conducteur" and st.session_state.t_shift in ["PRS", "BLN"]) else 0
+t_bru_count = 1 if (st.session_state.t_f2 == "Conducteur" and st.session_state.t_shift in ["DD", "PRG"]) else 0
+
+prs_count = h_prs_count + t_prs_count
+bru_count = h_bru_count + t_bru_count
 
 zondag_premie_aantal = (1 if st.session_state.h_zondag and st.session_state.h_shift != "H.L.P." else 0) + (1 if st.session_state.t_zondag and st.session_state.t_shift != "H.L.P." else 0)
 feestdag_premie_aantal = (1 if st.session_state.h_feestdag == "JA" and st.session_state.h_shift != "H.L.P." else 0) + (1 if st.session_state.t_feestdag == "JA" and st.session_state.t_shift != "H.L.P." else 0)
 
 atm_geld = atm_count * 30.0
 tm_geld = tm_count * 50.0
-bruprg_geld = bru_count * 100.0
-prsbln_geld = prs_count * 50.0
+bruprg_geld = bru_count * 100.0  # DD of PRG = 100
+prsbln_geld = prs_count * 50.0   # PRS of BLN = 50
 zondag_geld = zondag_premie_aantal * (6 * 2.0)
 feestdag_geld = feestdag_premie_aantal * (6 * 2.0)
 
@@ -142,44 +147,39 @@ if stat == "Extra (Horeca)":
 elif stat == "Flexi":
     totaal_vakantiegeld = bruto * 0.0767
 elif stat == "Student":
-    totaal_vakantiegeld = 0.0 # Studenten bouwen doorgaans geen vakantiegeld op
+    totaal_vakantiegeld = 0.0
 
 totaal_loon_met_vakantie = netto_loon + totaal_vakantiegeld
 
-# Grote totaal weergave bovenaan (inclusief Vakantiegeld)
+# --- Grote Totaal Weergave Bovenaan (Zonder Bruto) ---
 st.markdown("---")
-col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+col_m1, col_m2, col_m3 = st.columns(3)
 col_m1.metric("💵 Totaal Loon (Netto + Vak)", f"€ {totaal_loon_met_vakantie:.2f}")
 col_m2.metric("💰 Netto Loon", f"€ {netto_loon:.2f}")
 col_m3.metric("🏖️ Vakantiegeld", f"€ {totaal_vakantiegeld:.2f}")
-col_m4.metric("📈 Bruto Totaal", f"€ {bruto:.2f}")
 st.markdown("---")
 
 col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("🚆 Heenrit")
-    st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD", "BRU"], key='h_shift')
+    st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key='h_shift')
     st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key='h_f1')
     st.selectbox("Functie 2", ["Conducteur", "Geen"], key='h_f2')
     st.time_input("Start shift", key='h_start')
     st.time_input("Einde shift", key='h_einde')
     st.radio("Feestdag? (Heen)", ["JA", "NEE"], key='h_feestdag', horizontal=True)
     st.checkbox("Zondag? (Heen)", key='h_zondag')
-    st.selectbox("Conducteur Premie BRU/PRG", [0, 1], key='h_bruprg')
-    st.selectbox("Conducteur Premie PRS/BLN", [0, 1], key='h_prsbln')
 
 with col2:
     st.subheader("🚆 Terugrit")
-    st.selectbox("Bestemming (Terug)", ["H.L.P.", "PRG", "PRS", "BLN", "DD", "BRU"], key='t_shift')
+    st.selectbox("Bestemming (Terug)", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key='t_shift')
     st.selectbox("Functie 1 (Terug)", ["Steward", "ATM", "TM"], key='t_f1')
     st.selectbox("Functie 2 (Terug)", ["Conducteur", "Geen"], key='t_f2')
     st.time_input("Start shift (Terug)", key='t_start')
     st.time_input("Einde shift (Terug)", key='t_einde')
     st.radio("Feestdag? (Terug)", ["JA", "NEE"], key='t_feestdag', horizontal=True)
     st.checkbox("Zondag? (Terug)", key='t_zondag')
-    st.selectbox("Conducteur Premie BRU/PRG (Terug)", [0, 1], key='t_bruprg')
-    st.selectbox("Conducteur Premie PRS/BLN (Terug)", [0, 1], key='t_prsbln')
 
 st.markdown("---")
 
@@ -197,8 +197,8 @@ with tab1:
         ["Zondagpremie", f"{zondag_premie_aantal}", "€ 12.00", f"€ {zondag_geld:.2f}"],
         ["ATM premie", f"{atm_count}", "€ 30.00", f"€ {atm_geld:.2f}"],
         ["TM premie", f"{tm_count}", "€ 50.00", f"€ {tm_geld:.2f}"],
-        ["Conducteur BRUPRG", f"{bru_count}", "€ 100.00", f"€ {bruprg_geld:.2f}"],
-        ["Conducteur PRSBLN", f"{prs_count}", "€ 50.00", f"€ {prsbln_geld:.2f}"],
+        ["Conducteur premie (DD/PRG €100)", f"{bru_count}", "€ 100.00", f"€ {bruprg_geld:.2f}"],
+        ["Conducteur premie (PRS/BLN €50)", f"{prs_count}", "€ 50.00", f"€ {prsbln_geld:.2f}"],
     ], columns=["Onderdeel", "Aantal / Uren", "Basis", "Totaal (€)"])
     st.table(df_bruto)
 
