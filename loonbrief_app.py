@@ -4,7 +4,7 @@ from datetime import time
 
 st.set_page_config(page_title="Wagon Plastron - Looncalculator", layout="wide")
 
-# 1. Standaard waarden dictionary
+# 1. Standaard waarden dictionary (kledij standaard op 1)
 standaard_waarden = {
     'statuut': 'Student',
     'uurloon': 0.0,
@@ -13,11 +13,13 @@ standaard_waarden = {
     'declaraties': 0.0,
     # Heenrit
     'h_shift': 'H.L.P.', 'h_f1': 'Steward', 'h_f2': 'Geen',
-    'h_start': time(0, 0), 'h_einde': time(0, 0),
+    'h_start_u': 0, 'h_start_m': 0,
+    'h_einde_u': 0, 'h_einde_m': 0,
     'h_zondag': False, 'h_feestdag': 'NEE',
     # Terugrit
     't_shift': 'H.L.P.', 't_f1': 'Steward', 't_f2': 'Geen',
-    't_start': time(0, 0), 't_einde': time(0, 0),
+    't_start_u': 0, 't_start_m': 0,
+    't_einde_u': 0, 't_einde_m': 0,
     't_zondag': False, 't_feestdag': 'NEE',
 }
 
@@ -46,7 +48,13 @@ with st.sidebar:
 
 st.title("🚆 Wagon Plastron — Looncalculator")
 
-# 2. Urenberekening functie per rit (pure gewerkte uren en pauze)
+# Bouw tijden op uit de Uur- en Minuut-selectie
+h_start = time(st.session_state.h_start_u, st.session_state.h_start_m)
+h_einde = time(st.session_state.h_einde_u, st.session_state.h_einde_m)
+t_start = time(st.session_state.t_start_u, st.session_state.t_start_m)
+t_einde = time(st.session_state.t_einde_u, st.session_state.t_einde_m)
+
+# 2. Urenberekening functie per rit
 def bereken_rit_uren(shift, start, einde):
     if shift == "H.L.P.":
         return 0.0, 0.0
@@ -68,12 +76,11 @@ def bereken_rit_uren(shift, start, einde):
         
     return werken, pauze
 
-h_w, h_p = bereken_rit_uren(st.session_state.h_shift, st.session_state.h_start, st.session_state.h_einde)
-t_w, t_p = bereken_rit_uren(st.session_state.t_shift, st.session_state.t_start, st.session_state.t_einde)
+h_w, h_p = bereken_rit_uren(st.session_state.h_shift, h_start, h_einde)
+t_w, t_p = bereken_rit_uren(st.session_state.t_shift, t_start, t_einde)
 
 totaal_pauze = h_p + t_p
 
-# Bepaal of het weekend of feestdag is
 is_speciale_dag = (st.session_state.h_zondag or st.session_state.t_zondag) or \
                   (st.session_state.h_feestdag == "JA" or st.session_state.t_feestdag == "JA")
 
@@ -83,7 +90,6 @@ if st.session_state.h_shift == "PRS" and st.session_state.t_shift == "PRS":
     totaal_werken = min(11.0, totaal_dag_werken)
     over_tijd = max(0.0, totaal_dag_werken - 11.0)
 else:
-    # Aparte ritten per stuk getoetst aan 11u
     h_over = max(0.0, h_w - 11.0) if st.session_state.h_shift != "H.L.P." else 0.0
     t_over = max(0.0, t_w - 11.0) if st.session_state.t_shift != "H.L.P." else 0.0
     
@@ -174,25 +180,46 @@ st.markdown("---")
 
 col1, col2 = st.columns(2)
 
+hours_list = list(range(24))
+minutes_list = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] # Je kan evt uitbreiden naar 0-59 als je dat liever hebt
+
 with col1:
     st.subheader("🚆 Heenrit")
     st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key='h_shift')
     st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key='h_f1')
     st.selectbox("Functie 2", ["Conducteur", "Geen"], key='h_f2')
-    st.time_input("Start shift", key='h_start')
-    st.time_input("Einde shift", key='h_einde')
-    st.radio("Feestdag? (Heen)", ["JA", "NEE"], key='h_feestdag', horizontal=True)
-    st.checkbox("Zondag? (Heen)", key='h_zondag')
+    
+    st.text("Start shift")
+    hs1, hs2 = st.columns(2)
+    hs1.selectbox("Uur (Start Heen)", hours_list, key='h_start_u', format_func=lambda x: f"{x:02d}u")
+    hs2.selectbox("Min (Start Heen)", minutes_list, key='h_start_m', format_func=lambda x: f"{x:02d}m")
+    
+    st.text("Einde shift")
+    he1, he2 = st.columns(2)
+    he1.selectbox("Uur (Einde Heen)", hours_list, key='h_einde_u', format_func=lambda x: f"{x:02d}u")
+    he2.selectbox("Min (Einde Heen)", minutes_list, key='h_einde_m', format_func=lambda x: f"{x:02d}m")
+    
+    st.radio("Feestdag?", ["JA", "NEE"], key='h_feestdag', horizontal=True)
+    st.checkbox("Zondag?", key='h_zondag')
 
 with col2:
     st.subheader("🚆 Terugrit")
-    st.selectbox("Bestemming (Terug)", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key='t_shift')
-    st.selectbox("Functie 1 (Terug)", ["Steward", "ATM", "TM"], key='t_f1')
-    st.selectbox("Functie 2 (Terug)", ["Conducteur", "Geen"], key='t_f2')
-    st.time_input("Start shift (Terug)", key='t_start')
-    st.time_input("Einde shift (Terug)", key='t_einde')
-    st.radio("Feestdag? (Terug)", ["JA", "NEE"], key='t_feestdag', horizontal=True)
-    st.checkbox("Zondag? (Terug)", key='t_zondag')
+    st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key='t_shift')
+    st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key='t_f1')
+    st.selectbox("Functie 2", ["Conducteur", "Geen"], key='t_f2')
+    
+    st.text("Start shift")
+    ts1, ts2 = st.columns(2)
+    ts1.selectbox("Uur (Start Terug)", hours_list, key='t_start_u', format_func=lambda x: f"{x:02d}u")
+    ts2.selectbox("Min (Start Terug)", minutes_list, key='t_start_m', format_func=lambda x: f"{x:02d}m")
+    
+    st.text("Einde shift")
+    te1, te2 = st.columns(2)
+    te1.selectbox("Uur (Einde Terug)", hours_list, key='t_einde_u', format_func=lambda x: f"{x:02d}u")
+    te2.selectbox("Min (Einde Terug)", minutes_list, key='t_einde_m', format_func=lambda x: f"{x:02d}m")
+    
+    st.radio("Feestdag?", ["JA", "NEE"], key='t_feestdag', horizontal=True)
+    st.checkbox("Zondag?", key='t_zondag')
 
 st.markdown("---")
 
