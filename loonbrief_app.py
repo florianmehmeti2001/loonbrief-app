@@ -9,7 +9,7 @@ standaard_waarden = {
     'statuut': 'Student',
     'uurloon': 0.0,
     'hotel': 'NEE',
-    'kledij_aantal': 1,
+    'kledij_aantal': 0,
     'declaraties': 0.0,
     # Heenrit
     'h_shift': 'H.L.P.', 'h_f1': 'Steward', 'h_f2': 'Geen',
@@ -46,45 +46,59 @@ with st.sidebar:
 
 st.title("🚆 Wagon Plastron — Looncalculator")
 
-# 2. Urenberekening functie per rit
-def bereken_rit_uren(shift, start, einde, is_zondag, feestdag):
+# 2. Urenberekening functie per rit (pure gewerkte uren en pauze)
+def bereken_rit_uren(shift, start, einde):
     if shift == "H.L.P.":
-        return 0.0, 0.0, 0.0, 0.0
+        return 0.0, 0.0
         
     s_uur = start.hour + start.minute / 60.0
     e_uur = einde.hour + einde.minute / 60.0
-    is_weekend_of_feestdag = is_zondag or (feestdag == "JA")
     
     if shift == "PRS":
         totaal_duur = e_uur - s_uur
         if totaal_duur < 0: totaal_duur += 24
         pauze = 0.0
         werken = max(0.0, totaal_duur - pauze)
-        over_tijd = max(0.0, werken - 11.0)
     else:
         totaal_duur = (24.0 - s_uur + e_uur) % 24
         if totaal_duur == 0: totaal_duur = 24.0
         pauze = 5.0 if totaal_duur > 5 else 0.0
         netto_tijd = max(0.0, totaal_duur - pauze)
         werken = min(11.0, netto_tijd)
-        over_tijd = max(0.0, netto_tijd - 11.0)
         
-    if is_weekend_of_feestdag:
-        over_150 = 0.0
-        over_200 = over_tijd
-    else:
-        over_150 = over_tijd
-        over_200 = 0.0
-        
-    return werken, pauze, over_150, over_200
+    return werken, pauze
 
-h_w, h_p, h_150, h_200 = bereken_rit_uren(st.session_state.h_shift, st.session_state.h_start, st.session_state.h_einde, st.session_state.h_zondag, st.session_state.h_feestdag)
-t_w, t_p, t_150, t_200 = bereken_rit_uren(st.session_state.t_shift, st.session_state.t_start, st.session_state.t_einde, st.session_state.t_zondag, st.session_state.t_feestdag)
+h_w, h_p = bereken_rit_uren(st.session_state.h_shift, st.session_state.h_start, st.session_state.h_einde)
+t_w, t_p = bereken_rit_uren(st.session_state.t_shift, st.session_state.t_start, st.session_state.t_einde)
 
-totaal_werken = h_w + t_w
 totaal_pauze = h_p + t_p
-totaal_150 = h_150 + t_150
-totaal_200 = h_200 + t_200
+
+# Bepaal of het weekend of feestdag is
+is_speciale_dag = (st.session_state.h_zondag or st.session_state.t_zondag) or \
+                  (st.session_state.h_feestdag == "JA" or st.session_state.t_feestdag == "JA")
+
+# Wettelijke logica: Als beide ritten PRS zijn (twee shiften op 1 dag), samentellen per dag (11u grens op dagtotaal)
+if st.session_state.h_shift == "PRS" and st.session_state.t_shift == "PRS":
+    totaal_dag_werken = h_w + t_w
+    totaal_werken = min(11.0, totaal_dag_werken)
+    over_tijd = max(0.0, totaal_dag_werken - 11.0)
+else:
+    # Aparte ritten per stuk getoetst aan 11u
+    h_over = max(0.0, h_w - 11.0) if st.session_state.h_shift != "H.L.P." else 0.0
+    t_over = max(0.0, t_w - 11.0) if st.session_state.t_shift != "H.L.P." else 0.0
+    
+    h_normaal = min(11.0, h_w) if st.session_state.h_shift != "H.L.P." else 0.0
+    t_normaal = min(11.0, t_w) if st.session_state.t_shift != "H.L.P." else 0.0
+    
+    totaal_werken = h_normaal + t_normaal
+    over_tijd = h_over + t_over
+
+if is_speciale_dag:
+    totaal_150 = 0.0
+    totaal_200 = over_tijd
+else:
+    totaal_150 = over_tijd
+    totaal_200 = 0.0
 
 u = st.session_state.uurloon
 
@@ -92,7 +106,6 @@ u = st.session_state.uurloon
 atm_count = (1 if st.session_state.h_f1 == "ATM" and st.session_state.h_shift != "H.L.P." else 0) + (1 if st.session_state.t_f1 == "ATM" and st.session_state.t_shift != "H.L.P." else 0)
 tm_count = (1 if st.session_state.h_f1 == "TM" and st.session_state.h_shift != "H.L.P." else 0) + (1 if st.session_state.t_f1 == "TM" and st.session_state.t_shift != "H.L.P." else 0)
 
-# Automatische berekening conducteurspremies op basis van Functie 2 en Bestemming
 h_prs_count = 1 if (st.session_state.h_f2 == "Conducteur" and st.session_state.h_shift in ["PRS", "BLN"]) else 0
 h_bru_count = 1 if (st.session_state.h_f2 == "Conducteur" and st.session_state.h_shift in ["DD", "PRG"]) else 0
 
@@ -107,8 +120,8 @@ feestdag_premie_aantal = (1 if st.session_state.h_feestdag == "JA" and st.sessio
 
 atm_geld = atm_count * 30.0
 tm_geld = tm_count * 50.0
-bruprg_geld = bru_count * 100.0  # DD of PRG = 100
-prsbln_geld = prs_count * 50.0   # PRS of BLN = 50
+bruprg_geld = bru_count * 100.0
+prsbln_geld = prs_count * 50.0
 zondag_geld = zondag_premie_aantal * (6 * 2.0)
 feestdag_geld = feestdag_premie_aantal * (6 * 2.0)
 
@@ -151,7 +164,7 @@ elif stat == "Student":
 
 totaal_loon_met_vakantie = netto_loon + totaal_vakantiegeld
 
-# --- Grote Totaal Weergave Bovenaan (Zonder Bruto) ---
+# --- Grote Totaal Weergave Bovenaan ---
 st.markdown("---")
 col_m1, col_m2, col_m3 = st.columns(3)
 col_m1.metric("💵 Totaal Loon (Netto + Vak)", f"€ {totaal_loon_met_vakantie:.2f}")
