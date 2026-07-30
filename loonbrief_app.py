@@ -4,6 +4,29 @@ from datetime import time, date, timedelta
 
 st.set_page_config(page_title="Wagon Plastron - Looncalculator", layout="wide", page_icon="🚆")
 
+# --- Wachtwoordbeveiliging ---
+def check_password():
+    if "password_correct" not in st.session_state:
+        st.session_state["password_correct"] = False
+
+    if st.session_state["password_correct"]:
+        return True
+
+    st.title("🚆 Wagon Plastron — Beveiligde Toegang")
+    st.markdown("Voer het wachtwoord in om de looncalculator te ontgrendelen.")
+    
+    password = st.text_input("Wachtwoord", type="password")
+    if st.button("Inloggen"):
+        if password == "352135":  # Wachtwoord aangepast naar 352135
+            st.session_state["password_correct"] = True
+            st.rerun()
+        else:
+            st.error("Onjuist wachtwoord. Probeer het opnieuw.")
+    return False
+
+if not check_password():
+    st.stop()
+
 # --- Custom Railway UI & Styling ---
 st.markdown("""
 <style>
@@ -134,16 +157,16 @@ def bereken_netto_tijd(shift, start_time, einde_time):
 def get_terugrit_date(h_date, h_shift):
     if not isinstance(h_date, date):
         return h_date
-    wd = h_date.weekday() # 0=Maandag, 4=Vrijdag, 5=Zaterdag, 6=Zondag
+    wd = h_date.weekday()
     
     if h_shift == "PRS":
-        if wd == 5: # Zaterdag heen -> terug op zondag
+        if wd == 5:
             return h_date + timedelta(days=1)
         return h_date
     elif h_shift == "BLN":
         return h_date + timedelta(days=1)
     elif h_shift in ["DD", "PRG"]:
-        if wd == 4: # Vrijdag heen -> terug op zondag (+2 dagen)
+        if wd == 4:
             return h_date + timedelta(days=2)
         return h_date + timedelta(days=1)
     
@@ -349,15 +372,14 @@ dagnamen = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'
 week_cols = st.columns(7)
 
 def get_agenda_styling(text):
-    # PRS & BLN krijgen blauwtinten, DD & PRG krijgen amber/goudtinten
     if "PRS" in text:
-        return "#1b4f72", "#3498db" # Diep blauw / Helder blauw
+        return "#1b4f72", "#3498db"
     elif "BLN" in text:
-        return "#2471a3", "#5499c7" # Iets lichter blauw
+        return "#2471a3", "#5499c7"
     elif "DD" in text:
-        return "#7d6608", "#f1c40f" # Donker amber / Goud
+        return "#7d6608", "#f1c40f"
     elif "PRG" in text:
-        return "#b7950b", "#f39c12" # Lichter amber / Oranje-goud
+        return "#b7950b", "#f39c12"
     else:
         return "#2c3e50", "#7f8c8d"
 
@@ -367,13 +389,11 @@ for i in range(1, st.session_state.aantal_shiften + 1):
     h_shift = st.session_state[f'h{i}_shift']
     t_shift = st.session_state[f't{i}_shift']
     
-    # Heenrit toevoegen
     if h_shift != "H.L.P.":
         h_wd = h_date.weekday()
         h_dag_naam = dagnamen[h_wd]
         dag_dict[h_dag_naam].append(f"R{i}: BRU ➔ {h_shift}")
         
-    # Terugrit toevoegen op basis van slimme datumregels
     if t_shift != "H.L.P.":
         t_date = get_terugrit_date(h_date, h_shift)
         t_wd = t_date.weekday()
