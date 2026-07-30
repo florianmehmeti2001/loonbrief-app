@@ -131,7 +131,6 @@ def bereken_netto_tijd(shift, start_time, einde_time):
         
     return netto_tijd, pauze
 
-# Hulpfunctie om de datum van de terugrit te berekenen op basis van bestemming en regels
 def get_terugrit_date(h_date, h_shift):
     if not isinstance(h_date, date):
         return h_date
@@ -140,13 +139,13 @@ def get_terugrit_date(h_date, h_shift):
     if h_shift == "PRS":
         if wd == 5: # Zaterdag heen -> terug op zondag
             return h_date + timedelta(days=1)
-        return h_date # Anderen op dezelfde dag
+        return h_date
     elif h_shift == "BLN":
-        return h_date + timedelta(days=1) # Berlijn altijd volgende dag
+        return h_date + timedelta(days=1)
     elif h_shift in ["DD", "PRG"]:
         if wd == 4: # Vrijdag heen -> terug op zondag (+2 dagen)
             return h_date + timedelta(days=2)
-        return h_date + timedelta(days=1) # Anderen volgende dag
+        return h_date + timedelta(days=1)
     
     return h_date
 
@@ -344,10 +343,23 @@ for i in range(1, st.session_state.aantal_shiften + 1):
 
 st.markdown("---")
 
-# --- Weekagenda Overzicht (Maandag t/m Zondag) met Heen- en Terugrit gescheiden ---
+# --- Weekagenda Overzicht (Maandag t/m Zondag) met Kleurcodes per Traject ---
 st.subheader("📅 Weekagenda (Maandag — Zondag)")
 dagnamen = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag']
 week_cols = st.columns(7)
+
+def get_agenda_styling(text):
+    # PRS & BLN krijgen blauwtinten, DD & PRG krijgen amber/goudtinten
+    if "PRS" in text:
+        return "#1b4f72", "#3498db" # Diep blauw / Helder blauw
+    elif "BLN" in text:
+        return "#2471a3", "#5499c7" # Iets lichter blauw
+    elif "DD" in text:
+        return "#7d6608", "#f1c40f" # Donker amber / Goud
+    elif "PRG" in text:
+        return "#b7950b", "#f39c12" # Lichter amber / Oranje-goud
+    else:
+        return "#2c3e50", "#7f8c8d"
 
 dag_dict = {dag: [] for dag in dagnamen}
 for i in range(1, st.session_state.aantal_shiften + 1):
@@ -359,21 +371,26 @@ for i in range(1, st.session_state.aantal_shiften + 1):
     if h_shift != "H.L.P.":
         h_wd = h_date.weekday()
         h_dag_naam = dagnamen[h_wd]
-        dag_dict[h_dag_naam].append(f"R{i} Heen: BRU ➔ {h_shift}")
+        dag_dict[h_dag_naam].append(f"R{i}: BRU ➔ {h_shift}")
         
     # Terugrit toevoegen op basis van slimme datumregels
     if t_shift != "H.L.P.":
         t_date = get_terugrit_date(h_date, h_shift)
         t_wd = t_date.weekday()
         t_dag_naam = dagnamen[t_wd]
-        dag_dict[t_dag_naam].append(f"R{i} Terug: {t_shift} ➔ BRU")
+        dag_dict[t_dag_naam].append(f"R{i}: {t_shift} ➔ BRU")
 
 for idx, dag in enumerate(dagnamen):
     with week_cols[idx]:
         st.markdown(f"**{dag}**")
         if dag_dict[dag]:
             for item in dag_dict[dag]:
-                st.info(item)
+                bg_color, border_color = get_agenda_styling(item)
+                st.markdown(f"""
+                    <div style="background-color: {bg_color}; border-left: 4px solid {border_color}; padding: 6px 10px; border-radius: 4px; margin-bottom: 5px; font-size: 12px; color: white; font-weight: 500;">
+                        {item}
+                    </div>
+                """, unsafe_allow_html=True)
         else:
             st.write("—")
 
