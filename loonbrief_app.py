@@ -71,7 +71,7 @@ with st.sidebar:
             st.session_state[f't{i}_einde_u'] = 21
             st.session_state[f't{i}_einde_m'] = 50
             st.session_state[f't{i}_feestdag'] = False
-            st.session_state[f't{i}_zondag'] = (i == 2) # Zondag bij terugrit shift 2
+            st.session_state[f't{i}_zondag'] = (i == 2)
 
     is_locked = st.session_state.gebruik_voorbeeld
 
@@ -118,7 +118,6 @@ def bereken_netto_tijd(shift, start, einde):
         
     return netto_tijd, pauze
 
-# Bepaal automatisch op welke shift de hotelovernachting valt (waar zondag/feestdag staat, anders de laatste)
 hotel_actief_op_shift = 1
 if st.session_state.hotel == "JA":
     gevonden = False
@@ -168,7 +167,6 @@ for i in range(1, st.session_state.aantal_shiften + 1):
     is_overnachting_shift = (st.session_state.hotel == "JA" and i == hotel_actief_op_shift)
     
     if is_overnachting_shift:
-        # Overnachting = verspreid over 2 dagen, dus heen en terug apart beschouwen (geen dagtotaal samentelling)
         h_w = min(11.0, h_netto) if h_shift != "H.L.P." else 0.0
         h_o = max(0.0, h_netto - 11.0) if h_shift != "H.L.P." else 0.0
         t_w = min(11.0, t_netto) if t_shift != "H.L.P." else 0.0
@@ -182,7 +180,6 @@ for i in range(1, st.session_state.aantal_shiften + 1):
         if t_zondag or t_feestdag: totaal_200 += t_o
         else: totaal_150 += t_o
     else:
-        # Normale shift: als beide ritten PRS zijn op dezelfde dag, tellen ze samen
         if h_shift == "PRS" and t_shift == "PRS":
             dag_netto = h_netto + t_netto
             w_shift = min(11.0, dag_netto)
@@ -208,7 +205,6 @@ for i in range(1, st.session_state.aantal_shiften + 1):
             if t_zondag or t_feestdag: totaal_200 += t_o
             else: totaal_150 += t_o
         
-    # Premies optellen
     if h_shift != "H.L.P.":
         if h_f1 == "ATM": atm_count += 1
         if h_f1 == "TM": tm_count += 1
@@ -334,10 +330,10 @@ tab1, tab2, tab3, tab4 = st.tabs(["1. Bruto Opbouw", "2. Inhoudingen & Belastbaa
 
 with tab1:
     df_bruto = pd.DataFrame([
-        ["Totaal Werken", f"{totaal_werken:.1f} u", f"€ {u:.2f}", f"€ {totaal_werken * u:.2f}"],
-        ["Totaal Pauze", f"{totaal_pauze:.1f} u", f"€ {u:.2f}", f"€ {totaal_pauze * u:.2f}"],
-        ["Overuren 150%", f"{totaal_150:.1f} u", f"€ {u*1.5:.2f}", f"€ {totaal_150 * u * 1.5:.2f}"],
-        ["Overuren 200%", f"{totaal_200:.1f} u", f"€ {u*2.0:.2f}", f"€ {totaal_200 * u * 2.0:.2f}"],
+        ["Totaal Werken", f"{totaal_werken:.2f} u", f"€ {u:.2f}", f"€ {totaal_werken * u:.2f}"],
+        ["Totaal Pauze", f"{totaal_pauze:.2f} u", f"€ {u:.2f}", f"€ {totaal_pauze * u:.2f}"],
+        ["Overuren 150%", f"{totaal_150:.2f} u", f"€ {u*1.5:.2f}", f"€ {totaal_150 * u * 1.5:.2f}"],
+        ["Overuren 200%", f"{totaal_200:.2f} u", f"€ {u*2.0:.2f}", f"€ {totaal_200 * u * 2.0:.2f}"],
         ["Feestdagpremie", f"{feestdag_premie_aantal}", "€ 12.00", f"€ {feestdag_geld:.2f}"],
         ["Zondagpremie", f"{zondag_premie_aantal}", "€ 12.00", f"€ {zondag_geld:.2f}"],
         ["ATM premie", f"{atm_count}", "€ 30.00", f"€ {atm_geld:.2f}"],
