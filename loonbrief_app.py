@@ -2,7 +2,28 @@ import streamlit as st
 import pandas as pd
 from datetime import time
 
-st.set_page_config(page_title="Wagon Plastron - Looncalculator", layout="wide")
+st.set_page_config(page_title="Wagon Plastron - Looncalculator", layout="wide", page_icon="🚆")
+
+# --- Custom Railway UI & Styling ---
+st.markdown("""
+<style>
+    .main {
+        background-color: #0e1117;
+    }
+    div.stButton > button {
+        background: linear-gradient(135deg, #1f4068 0%, #162447 100%);
+        color: white;
+        border-radius: 8px;
+        border: 1px solid #e43f5a;
+        font-weight: bold;
+        transition: 0.3s;
+    }
+    div.stButton > button:hover {
+        background: linear-gradient(135deg, #e43f5a 0%, #1f4068 100%);
+        border-color: white;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # 1. Standaard waarden dictionary
 standaard_waarden = {
@@ -18,13 +39,11 @@ standaard_waarden = {
 for i in [1, 2, 3]:
     standaard_waarden.update({
         f'h{i}_shift': 'H.L.P.', f'h{i}_f1': 'Steward', f'h{i}_f2': 'Geen',
-        f'h{i}_start_u': 0, f'h{i}_start_m': 0,
-        f'h{i}_einde_u': 0, f'h{i}_einde_m': 0,
+        f'h{i}_start_time': time(0, 0), f'h{i}_einde_time': time(0, 0),
         f'h{i}_zondag': False, f'h{i}_feestdag': False,
         
         f't{i}_shift': 'H.L.P.', f't{i}_f1': 'Steward', f't{i}_f2': 'Geen',
-        f't{i}_start_u': 0, f't{i}_start_m': 0,
-        f't{i}_einde_u': 0, f't{i}_einde_m': 0,
+        f't{i}_start_time': time(0, 0), f't{i}_einde_time': time(0, 0),
         f't{i}_zondag': False, f't{i}_feestdag': False,
     })
 
@@ -56,20 +75,16 @@ with st.sidebar:
             st.session_state[f'h{i}_shift'] = "PRS"
             st.session_state[f'h{i}_f1'] = "ATM"
             st.session_state[f'h{i}_f2'] = "Conducteur"
-            st.session_state[f'h{i}_start_u'] = 7
-            st.session_state[f'h{i}_start_m'] = 35
-            st.session_state[f'h{i}_einde_u'] = 12
-            st.session_state[f'h{i}_einde_m'] = 30
+            st.session_state[f'h{i}_start_time'] = time(7, 35)
+            st.session_state[f'h{i}_einde_time'] = time(12, 30)
             st.session_state[f'h{i}_feestdag'] = False
             st.session_state[f'h{i}_zondag'] = False
             
             st.session_state[f't{i}_shift'] = "PRS"
             st.session_state[f't{i}_f1'] = "ATM"
             st.session_state[f't{i}_f2'] = "Conducteur"
-            st.session_state[f't{i}_start_u'] = 15
-            st.session_state[f't{i}_start_m'] = 10
-            st.session_state[f't{i}_einde_u'] = 21
-            st.session_state[f't{i}_einde_m'] = 50
+            st.session_state[f't{i}_start_time'] = time(15, 10)
+            st.session_state[f't{i}_einde_time'] = time(21, 50)
             st.session_state[f't{i}_feestdag'] = False
             st.session_state[f't{i}_zondag'] = (i == 2)
 
@@ -95,15 +110,12 @@ st.markdown("""
 Maak plaats voor de **ECHTE** loonbrief! Bereken hier snel, eerlijk en feilloos wat je bankrekening *echt* mag verwachten voor al dat harde werk op de sporen.
 """)
 
-hours_list = list(range(24))
-minutes_list = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
-
-def bereken_netto_tijd(shift, start, einde):
+def bereken_netto_tijd(shift, start_time, einde_time):
     if shift == "H.L.P.":
         return 0.0, 0.0
         
-    s_uur = start.hour + start.minute / 60.0
-    e_uur = einde.hour + einde.minute / 60.0
+    s_uur = start_time.hour + start_time.minute / 60.0
+    e_uur = einde_time.hour + einde_time.minute / 60.0
     
     if shift == "PRS":
         totaal_duur = e_uur - s_uur
@@ -142,10 +154,10 @@ zondag_premie_aantal = 0
 feestdag_premie_aantal = 0
 
 for i in range(1, st.session_state.aantal_shiften + 1):
-    h_start = time(st.session_state[f'h{i}_start_u'], st.session_state[f'h{i}_start_m'])
-    h_einde = time(st.session_state[f'h{i}_einde_u'], st.session_state[f'h{i}_einde_m'])
-    t_start = time(st.session_state[f't{i}_start_u'], st.session_state[f't{i}_start_m'])
-    t_einde = time(st.session_state[f't{i}_einde_u'], st.session_state[f't{i}_einde_m'])
+    h_start = st.session_state[f'h{i}_start_time']
+    h_einde = st.session_state[f'h{i}_einde_time']
+    t_start = st.session_state[f't{i}_start_time']
+    t_einde = st.session_state[f't{i}_einde_time']
     
     h_shift = st.session_state[f'h{i}_shift']
     t_shift = st.session_state[f't{i}_shift']
@@ -278,51 +290,37 @@ col_m2.metric("💰 Netto Loon", f"€ {netto_loon:.2f}")
 col_m3.metric("🏖️ Vakantiegeld", f"€ {totaal_vakantiegeld:.2f}")
 st.markdown("---")
 
+# Render invoerblokken in mooie kaarten
 for i in range(1, st.session_state.aantal_shiften + 1):
-    if st.session_state.aantal_shiften > 1:
+    with st.container(border=True):
         st.markdown(f"### 🔁 Shift / Reis {i}")
-        
-    col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2)
 
-    with col1:
-        st.subheader("🚆 Heenrit")
-        st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key=f'h{i}_shift', disabled=is_locked)
-        st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key=f'h{i}_f1', disabled=is_locked)
-        st.selectbox("Functie 2", ["Conducteur", "Geen"], key=f'h{i}_f2', disabled=is_locked)
-        
-        st.text("Start shift")
-        hs1, hs2 = st.columns(2)
-        hs1.selectbox("Uur", hours_list, key=f'h{i}_start_u', format_func=lambda x: f"{x:02d}u", disabled=is_locked)
-        hs2.selectbox("Min", minutes_list, key=f'h{i}_start_m', format_func=lambda x: f"{x:02d}m", disabled=is_locked)
-        
-        st.text("Einde shift")
-        he1, he2 = st.columns(2)
-        he1.selectbox("Uur", hours_list, key=f'h{i}_einde_u', format_func=lambda x: f"{x:02d}u", disabled=is_locked)
-        he2.selectbox("Min", minutes_list, key=f'h{i}_einde_m', format_func=lambda x: f"{x:02d}m", disabled=is_locked)
-        
-        st.checkbox("Feestdag?", key=f'h{i}_feestdag', disabled=is_locked)
-        st.checkbox("Zondag?", key=f'h{i}_zondag', disabled=is_locked)
+        with col1:
+            st.subheader("🚆 Heenrit")
+            st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key=f'h{i}_shift', disabled=is_locked)
+            st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key=f'h{i}_f1', disabled=is_locked)
+            st.selectbox("Functie 2", ["Conducteur", "Geen"], key=f'h{i}_f2', disabled=is_locked)
+            
+            st.time_input("Start shift (Heen)", key=f'h{i}_start_time', disabled=is_locked)
+            st.time_input("Einde shift (Heen)", key=f'h{i}_einde_time', disabled=is_locked)
+            
+            st.checkbox("Feestdag?", key=f'h{i}_feestdag', disabled=is_locked)
+            st.checkbox("Zondag?", key=f'h{i}_zondag', disabled=is_locked)
 
-    with col2:
-        st.subheader("🚆 Terugrit")
-        st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key=f't{i}_shift', disabled=is_locked)
-        st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key=f't{i}_f1', disabled=is_locked)
-        st.selectbox("Functie 2", ["Conducteur", "Geen"], key=f't{i}_f2', disabled=is_locked)
-        
-        st.text("Start shift")
-        ts1, ts2 = st.columns(2)
-        ts1.selectbox("Uur", hours_list, key=f't{i}_start_u', format_func=lambda x: f"{x:02d}u", disabled=is_locked)
-        ts2.selectbox("Min", minutes_list, key=f't{i}_start_m', format_func=lambda x: f"{x:02d}m", disabled=is_locked)
-        
-        st.text("Einde shift")
-        te1, te2 = st.columns(2)
-        te1.selectbox("Uur", hours_list, key=f't{i}_einde_u', format_func=lambda x: f"{x:02d}u", disabled=is_locked)
-        te2.selectbox("Min", minutes_list, key=f't{i}_einde_m', format_func=lambda x: f"{x:02d}m", disabled=is_locked)
-        
-        st.checkbox("Feestdag?", key=f't{i}_feestdag', disabled=is_locked)
-        st.checkbox("Zondag?", key=f't{i}_zondag', disabled=is_locked)
+        with col2:
+            st.subheader("🚆 Terugrit")
+            st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key=f't{i}_shift', disabled=is_locked)
+            st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key=f't{i}_f1', disabled=is_locked)
+            st.selectbox("Functie 2", ["Conducteur", "Geen"], key=f't{i}_f2', disabled=is_locked)
+            
+            st.time_input("Start shift (Terug)", key=f't{i}_start_time', disabled=is_locked)
+            st.time_input("Einde shift (Terug)", key=f't{i}_einde_time', disabled=is_locked)
+            
+            st.checkbox("Feestdag?", key=f't{i}_feestdag', disabled=is_locked)
+            st.checkbox("Zondag?", key=f't{i}_zondag', disabled=is_locked)
 
-    st.markdown("---")
+st.markdown("---")
 
 st.subheader(f"📋 Gedetailleerde Uitsplitsing — Statuut: {stat}")
 
@@ -342,6 +340,13 @@ with tab1:
         ["Conducteur premie (PRS/BLN €50)", f"{prs_count}", "€ 50.00", f"€ {prsbln_geld:.2f}"],
     ], columns=["Onderdeel", "Aantal / Uren", "Basis", "Totaal (€)"])
     st.table(df_bruto)
+    
+    # Visuele grafiek van de urenopbouw
+    st.markdown("#### 📊 Visueel Urenoverzicht")
+    chart_data = pd.DataFrame({
+        'Uren': [totaal_werken, totaal_pauze, totaal_150, totaal_200]
+    }, index=['Normaal Werken', 'Pauze', 'Overuren 150%', 'Overuren 200%'])
+    st.bar_chart(chart_data)
 
 with tab2:
     df_inh = pd.DataFrame([
