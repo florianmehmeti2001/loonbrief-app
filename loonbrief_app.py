@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import time
+from datetime import time, date
 
 st.set_page_config(page_title="Wagon Plastron - Looncalculator", layout="wide", page_icon="🚆")
 
@@ -41,6 +41,7 @@ for i in [1, 2, 3]:
         f'h{i}_shift': 'H.L.P.', f'h{i}_f1': 'Steward', f'h{i}_f2': 'Geen',
         f'h{i}_start_time': time(0, 0), f'h{i}_einde_time': time(0, 0),
         f'h{i}_zondag': False, f'h{i}_feestdag': False,
+        f'shift_{i}_date': date.today(),
         
         f't{i}_shift': 'H.L.P.', f't{i}_f1': 'Steward', f't{i}_f2': 'Geen',
         f't{i}_start_time': time(0, 0), f't{i}_einde_time': time(0, 0),
@@ -290,10 +291,12 @@ col_m2.metric("💰 Netto Loon", f"€ {netto_loon:.2f}")
 col_m3.metric("🏖️ Vakantiegeld", f"€ {totaal_vakantiegeld:.2f}")
 st.markdown("---")
 
-# Render invoerblokken in mooie kaarten
+# Render invoerblokken in mooie kaarten met datumselectie
 for i in range(1, st.session_state.aantal_shiften + 1):
     with st.container(border=True):
         st.markdown(f"### 🔁 Shift / Reis {i}")
+        st.date_input(f"Datum van Reis {i}", key=f'shift_{i}_date', disabled=is_locked)
+        
         col1, col2 = st.columns(2)
 
         with col1:
@@ -322,6 +325,33 @@ for i in range(1, st.session_state.aantal_shiften + 1):
 
 st.markdown("---")
 
+# --- Weekagenda Overzicht (Maandag t/m Zondag) ---
+st.subheader("📅 Weekagenda (Maandag — Zondag)")
+dagnamen = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag']
+week_cols = st.columns(7)
+
+# Map shiften per weekdag (0 = Maandag, 6 = Zondag)
+dag_dict = {dag: [] for dag in dagnamen}
+for i in range(1, st.session_state.aantal_shiften + 1):
+    d = st.session_state[f'shift_{i}_date']
+    dag_idx = d.weekday() # Maandag=0, Zondag=6
+    dag_naam = dagnamen[dag_idx]
+    
+    h_dest = st.session_state[f'h{i}_shift']
+    t_dest = st.session_state[f't{i}_shift']
+    dag_dict[dag_naam].append(f"Reis {i}: {h_dest} ➔ {t_dest}")
+
+for idx, dag in enumerate(dagnamen):
+    with week_cols[idx]:
+        st.markdown(f"**{dag}**")
+        if dag_dict[dag]:
+            for item in dag_dict[dag]:
+                st.info(item)
+        else:
+            st.write("—")
+
+st.markdown("---")
+
 st.subheader(f"📋 Gedetailleerde Uitsplitsing — Statuut: {stat}")
 
 tab1, tab2, tab3, tab4 = st.tabs(["1. Bruto Opbouw", "2. Inhoudingen & Belastbaar", "3. Netto & Vergoedingen", "4. Vakantiegeld"])
@@ -340,13 +370,6 @@ with tab1:
         ["Conducteur premie (PRS/BLN €50)", f"{prs_count}", "€ 50.00", f"€ {prsbln_geld:.2f}"],
     ], columns=["Onderdeel", "Aantal / Uren", "Basis", "Totaal (€)"])
     st.table(df_bruto)
-    
-    # Visuele grafiek van de urenopbouw
-    st.markdown("#### 📊 Visueel Urenoverzicht")
-    chart_data = pd.DataFrame({
-        'Uren': [totaal_werken, totaal_pauze, totaal_150, totaal_200]
-    }, index=['Normaal Werken', 'Pauze', 'Overuren 150%', 'Overuren 200%'])
-    st.bar_chart(chart_data)
 
 with tab2:
     df_inh = pd.DataFrame([
