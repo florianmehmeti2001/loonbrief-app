@@ -4,7 +4,7 @@ from datetime import time
 
 st.set_page_config(page_title="Wagon Plastron - Looncalculator", layout="wide")
 
-# 1. Standaard waarden dictionary (inclusief tot 3 shiften en kledij op 1)
+# 1. Standaard waarden dictionary (kledij standaard op 1)
 standaard_waarden = {
     'statuut': 'Student',
     'uurloon': 0.0,
@@ -184,7 +184,9 @@ belastbaar = bruto + rsz + bv
 
 kledij = st.session_state.kledij_aantal * 2.20
 declaraties = st.session_state.declaraties
-dagvergoeding = 50.0 if st.session_state.hotel == "JA" else 25.0
+
+# Dagvergoeding: €25 per reis + €25 extra bij hotelovernachting
+dagvergoeding = (st.session_state.aantal_shiften * 25.0) + (25.0 if st.session_state.hotel == "JA" else 0.0)
 
 netto_loon = belastbaar + kledij + declaraties + dagvergoeding
 
@@ -296,7 +298,7 @@ with tab3:
         ["Belastbaar", f"€ {belastbaar:.2f}"],
         ["Kledijvergoeding", f"€ {kledij:.2f} ({st.session_state.kledij_aantal} d)"],
         ["Declaraties", f"€ {declaraties:.2f}"],
-        ["Dagvergoeding (Hotel: " + st.session_state.hotel + ")", f"€ {dagvergoeding:.2f}"],
+        ["Dagvergoeding", f"€ {dagvergoeding:.2f}"],
         ["Netto Loon", f"€ {netto_loon:.2f}"],
     ], columns=["Onderdeel", "Bedrag (€)"])
     st.table(df_netto)
