@@ -4,24 +4,28 @@ from datetime import time
 
 st.set_page_config(page_title="Wagon Plastron - Looncalculator", layout="wide")
 
-# 1. Standaard waarden dictionary (kledij standaard op 1)
+# 1. Standaard waarden dictionary (inclusief tot 3 shiften en kledij op 1)
 standaard_waarden = {
     'statuut': 'Student',
     'uurloon': 0.0,
     'hotel': 'NEE',
     'kledij_aantal': 1,
     'declaraties': 0.0,
-    # Heenrit
-    'h_shift': 'H.L.P.', 'h_f1': 'Steward', 'h_f2': 'Geen',
-    'h_start_u': 0, 'h_start_m': 0,
-    'h_einde_u': 0, 'h_einde_m': 0,
-    'h_zondag': False, 'h_feestdag': 'NEE',
-    # Terugrit
-    't_shift': 'H.L.P.', 't_f1': 'Steward', 't_f2': 'Geen',
-    't_start_u': 0, 't_start_m': 0,
-    't_einde_u': 0, 't_einde_m': 0,
-    't_zondag': False, 't_feestdag': 'NEE',
+    'aantal_shiften': 1,
 }
+
+for i in [1, 2, 3]:
+    standaard_waarden.update({
+        f'h{i}_shift': 'H.L.P.', f'h{i}_f1': 'Steward', f'h{i}_f2': 'Geen',
+        f'h{i}_start_u': 0, f'h{i}_start_m': 0,
+        f'h{i}_einde_u': 0, f'h{i}_einde_m': 0,
+        f'h{i}_zondag': False, f'h{i}_feestdag': False,
+        
+        f't{i}_shift': 'H.L.P.', f't{i}_f1': 'Steward', f't{i}_f2': 'Geen',
+        f't{i}_start_u': 0, f't{i}_start_m': 0,
+        f't{i}_einde_u': 0, f't{i}_einde_m': 0,
+        f't{i}_zondag': False, f't{i}_feestdag': False,
+    })
 
 for key, val in standaard_waarden.items():
     if key not in st.session_state:
@@ -37,6 +41,7 @@ with st.sidebar:
     st.header("⚙️ Instellingen")
     st.selectbox("Kies je statuut", ["Student", "Flexi", "Extra (Horeca)"], key='statuut')
     st.number_input("Basis Uurloon (€)", value=0.0, step=0.10, key='uurloon')
+    st.selectbox("Aantal reizen/shiften deze week", [1, 2, 3], key='aantal_shiften')
     st.radio("Hotelovernachting?", ["JA", "NEE"], key='hotel')
     st.number_input("Aantal dagen kledijvergoeding", min_value=0, max_value=10, key='kledij_aantal')
     st.number_input("Declaraties (€)", min_value=0.0, step=1.0, key='declaraties')
@@ -54,13 +59,10 @@ st.markdown("""
 Maak plaats voor de **ECHTE** loonbrief! Bereken hier snel, eerlijk en feilloos wat je bankrekening *echt* mag verwachten voor al dat harde werk op de sporen.
 """)
 
-# Bouw tijden op uit de Uur- en Minuut-selectie
-h_start = time(st.session_state.h_start_u, st.session_state.h_start_m)
-h_einde = time(st.session_state.h_einde_u, st.session_state.h_einde_m)
-t_start = time(st.session_state.t_start_u, st.session_state.t_start_m)
-t_einde = time(st.session_state.t_einde_u, st.session_state.t_einde_m)
+hours_list = list(range(24))
+minutes_list = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
 
-# 2. Urenberekening functie per rit (inclusief correcte overuren berekening)
+# Functie om uren van één rit te berekenen
 def bereken_rit_uren(shift, start, einde):
     if shift == "H.L.P.":
         return 0.0, 0.0, 0.0
@@ -84,49 +86,81 @@ def bereken_rit_uren(shift, start, einde):
     
     return werken, pauze, over_tijd
 
-h_w, h_p, h_over = bereken_rit_uren(st.session_state.h_shift, h_start, h_einde)
-t_w, t_p, t_over = bereken_rit_uren(st.session_state.t_shift, t_start, t_einde)
+# Loop door het aantal geselecteerde shiften en tel alles op
+totaal_werken = 0.0
+totaal_pauze = 0.0
+totaal_150 = 0.0
+totaal_200 = 0.0
 
-totaal_pauze = h_p + t_p
+atm_count = 0
+tm_count = 0
+bru_count = 0
+prs_count = 0
+zondag_premie_aantal = 0
+feestdag_premie_aantal = 0
 
-is_speciale_dag = (st.session_state.h_zondag or st.session_state.t_zondag) or \
-                  (st.session_state.h_feestdag == "JA" or st.session_state.t_feestdag == "JA")
+for i in range(1, st.session_state.aantal_shiften + 1):
+    h_start = time(st.session_state[f'h{i}_start_u'], st.session_state[f'h{i}_start_m'])
+    h_einde = time(st.session_state[f'h{i}_einde_u'], st.session_state[f'h{i}_einde_m'])
+    t_start = time(st.session_state[f't{i}_start_u'], st.session_state[f't{i}_start_m'])
+    t_einde = time(st.session_state[f't{i}_einde_u'], st.session_state[f't{i}_einde_m'])
+    
+    h_shift = st.session_state[f'h{i}_shift']
+    t_shift = st.session_state[f't{i}_shift']
+    h_f1 = st.session_state[f'h{i}_f1']
+    t_f1 = st.session_state[f't{i}_f1']
+    h_f2 = st.session_state[f'h{i}_f2']
+    t_f2 = st.session_state[f't{i}_f2']
+    
+    h_zondag = st.session_state[f'h{i}_zondag']
+    t_zondag = st.session_state[f't{i}_zondag']
+    h_feestdag = st.session_state[f'h{i}_feestdag']
+    t_feestdag = st.session_state[f't{i}_feestdag']
 
-# Wettelijke logica: Als beide ritten PRS zijn (twee shiften op 1 dag), samentellen per dag (11u grens op dagtotaal)
-if st.session_state.h_shift == "PRS" and st.session_state.t_shift == "PRS":
-    h_netto = h_w + h_over
-    t_netto = t_w + t_over
-    totaal_dag_netto = h_netto + t_netto
-    totaal_werken = min(11.0, totaal_dag_netto)
-    over_tijd = max(0.0, totaal_dag_netto - 11.0)
-else:
-    totaal_werken = h_w + t_w
-    over_tijd = h_over + t_over
+    h_w, h_p, h_over = bereken_rit_uren(h_shift, h_start, h_einde)
+    t_w, t_p, t_over = bereken_rit_uren(t_shift, t_start, t_einde)
+    
+    totaal_pauze += (h_p + t_p)
+    
+    is_speciale_dag = h_zondag or t_zondag or h_feestdag or t_feestdag
 
-if is_speciale_dag:
-    totaal_150 = 0.0
-    totaal_200 = over_tijd
-else:
-    totaal_150 = over_tijd
-    totaal_200 = 0.0
+    if h_shift == "PRS" and t_shift == "PRS":
+        h_netto = h_w + h_over
+        t_netto = t_w + t_over
+        totaal_dag_netto = h_netto + t_netto
+        w_shift = min(11.0, totaal_dag_netto)
+        o_shift = max(0.0, totaal_dag_netto - 11.0)
+    else:
+        w_shift = (min(11.0, h_w) if h_shift != "H.L.P." else 0.0) + (min(11.0, t_w) if t_shift != "H.L.P." else 0.0)
+        o_shift = (h_over if h_shift != "H.L.P." else 0.0) + (t_over if t_shift != "H.L.P." else 0.0)
+        
+    totaal_werken += w_shift
+    
+    if is_speciale_dag:
+        totaal_200 += o_shift
+    else:
+        totaal_150 += o_shift
+        
+    # Premies per shift optellen
+    if h_shift != "H.L.P.":
+        if h_f1 == "ATM": atm_count += 1
+        if h_f1 == "TM": tm_count += 1
+        if h_f2 == "Conducteur":
+            if h_shift in ["DD", "PRG"]: bru_count += 1
+            elif h_shift in ["PRS", "BLN"]: prs_count += 1
+        if h_zondag: zondag_premie_aantal += 1
+        if h_feestdag: feestdag_premie_aantal += 1
+        
+    if t_shift != "H.L.P.":
+        if t_f1 == "ATM": atm_count += 1
+        if t_f1 == "TM": tm_count += 1
+        if t_f2 == "Conducteur":
+            if t_shift in ["DD", "PRG"]: bru_count += 1
+            elif t_shift in ["PRS", "BLN"]: prs_count += 1
+        if t_zondag: zondag_premie_aantal += 1
+        if t_feestdag: feestdag_premie_aantal += 1
 
 u = st.session_state.uurloon
-
-# Premies en tellingen
-atm_count = (1 if st.session_state.h_f1 == "ATM" and st.session_state.h_shift != "H.L.P." else 0) + (1 if st.session_state.t_f1 == "ATM" and st.session_state.t_shift != "H.L.P." else 0)
-tm_count = (1 if st.session_state.h_f1 == "TM" and st.session_state.h_shift != "H.L.P." else 0) + (1 if st.session_state.t_f1 == "TM" and st.session_state.t_shift != "H.L.P." else 0)
-
-h_prs_count = 1 if (st.session_state.h_f2 == "Conducteur" and st.session_state.h_shift in ["PRS", "BLN"]) else 0
-h_bru_count = 1 if (st.session_state.h_f2 == "Conducteur" and st.session_state.h_shift in ["DD", "PRG"]) else 0
-
-t_prs_count = 1 if (st.session_state.t_f2 == "Conducteur" and st.session_state.t_shift in ["PRS", "BLN"]) else 0
-t_bru_count = 1 if (st.session_state.t_f2 == "Conducteur" and st.session_state.t_shift in ["DD", "PRG"]) else 0
-
-prs_count = h_prs_count + t_prs_count
-bru_count = h_bru_count + t_bru_count
-
-zondag_premie_aantal = (1 if st.session_state.h_zondag and st.session_state.h_shift != "H.L.P." else 0) + (1 if st.session_state.t_zondag and st.session_state.t_shift != "H.L.P." else 0)
-feestdag_premie_aantal = (1 if st.session_state.h_feestdag == "JA" and st.session_state.h_shift != "H.L.P." else 0) + (1 if st.session_state.t_feestdag == "JA" and st.session_state.t_shift != "H.L.P." else 0)
 
 atm_geld = atm_count * 30.0
 tm_geld = tm_count * 50.0
@@ -174,7 +208,7 @@ elif stat == "Student":
 
 totaal_loon_met_vakantie = netto_loon + totaal_vakantiegeld
 
-# --- Grote Totaal Weergave Bovenaan (Zonder Bruto) ---
+# --- Grote Totaal Weergave Bovenaan ---
 st.markdown("---")
 col_m1, col_m2, col_m3 = st.columns(3)
 col_m1.metric("💵 Totaal Loon (Netto + Vak)", f"€ {totaal_loon_met_vakantie:.2f}")
@@ -182,50 +216,52 @@ col_m2.metric("💰 Netto Loon", f"€ {netto_loon:.2f}")
 col_m3.metric("🏖️ Vakantiegeld", f"€ {totaal_vakantiegeld:.2f}")
 st.markdown("---")
 
-col1, col2 = st.columns(2)
+# Render invoerblokken dynamisch op basis van gekozen aantal shiften
+for i in range(1, st.session_state.aantal_shiften + 1):
+    if st.session_state.aantal_shiften > 1:
+        st.markdown(f"### 🔁 Shift / Reis {i}")
+        
+    col1, col2 = st.columns(2)
 
-hours_list = list(range(24))
-minutes_list = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
+    with col1:
+        st.subheader("🚆 Heenrit")
+        st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key=f'h{i}_shift')
+        st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key=f'h{i}_f1')
+        st.selectbox("Functie 2", ["Conducteur", "Geen"], key=f'h{i}_f2')
+        
+        st.text("Start shift")
+        hs1, hs2 = st.columns(2)
+        hs1.selectbox("Uur", hours_list, key=f'h{i}_start_u', format_func=lambda x: f"{x:02d}u")
+        hs2.selectbox("Min", minutes_list, key=f'h{i}_start_m', format_func=lambda x: f"{x:02d}m")
+        
+        st.text("Einde shift")
+        he1, he2 = st.columns(2)
+        he1.selectbox("Uur", hours_list, key=f'h{i}_einde_u', format_func=lambda x: f"{x:02d}u")
+        he2.selectbox("Min", minutes_list, key=f'h{i}_einde_m', format_func=lambda x: f"{x:02d}m")
+        
+        st.checkbox("Feestdag?", key=f'h{i}_feestdag')
+        st.checkbox("Zondag?", key=f'h{i}_zondag')
 
-with col1:
-    st.subheader("🚆 Heenrit")
-    st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key='h_shift')
-    st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key='h_f1')
-    st.selectbox("Functie 2", ["Conducteur", "Geen"], key='h_f2')
-    
-    st.text("Start shift")
-    hs1, hs2 = st.columns(2)
-    hs1.selectbox("Uur (Start Heen)", hours_list, key='h_start_u', format_func=lambda x: f"{x:02d}u")
-    hs2.selectbox("Min (Start Heen)", minutes_list, key='h_start_m', format_func=lambda x: f"{x:02d}m")
-    
-    st.text("Einde shift")
-    he1, he2 = st.columns(2)
-    he1.selectbox("Uur (Einde Heen)", hours_list, key='h_einde_u', format_func=lambda x: f"{x:02d}u")
-    he2.selectbox("Min (Einde Heen)", minutes_list, key='h_einde_m', format_func=lambda x: f"{x:02d}m")
-    
-    st.radio("Feestdag?", ["JA", "NEE"], key='h_feestdag', horizontal=True)
-    st.checkbox("Zondag?", key='h_zondag')
+    with col2:
+        st.subheader("🚆 Terugrit")
+        st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key=f't{i}_shift')
+        st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key=f't{i}_f1')
+        st.selectbox("Functie 2", ["Conducteur", "Geen"], key=f't{i}_f2')
+        
+        st.text("Start shift")
+        ts1, ts2 = st.columns(2)
+        ts1.selectbox("Uur", hours_list, key=f't{i}_start_u', format_func=lambda x: f"{x:02d}u")
+        ts2.selectbox("Min", minutes_list, key=f't{i}_start_m', format_func=lambda x: f"{x:02d}m")
+        
+        st.text("Einde shift")
+        te1, te2 = st.columns(2)
+        te1.selectbox("Uur", hours_list, key=f't{i}_einde_u', format_func=lambda x: f"{x:02d}u")
+        te2.selectbox("Min", minutes_list, key=f't{i}_einde_m', format_func=lambda x: f"{x:02d}m")
+        
+        st.checkbox("Feestdag?", key=f't{i}_feestdag')
+        st.checkbox("Zondag?", key=f't{i}_zondag')
 
-with col2:
-    st.subheader("🚆 Terugrit")
-    st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key='t_shift')
-    st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key='t_f1')
-    st.selectbox("Functie 2", ["Conducteur", "Geen"], key='t_f2')
-    
-    st.text("Start shift")
-    ts1, ts2 = st.columns(2)
-    ts1.selectbox("Uur (Start Terug)", hours_list, key='t_start_u', format_func=lambda x: f"{x:02d}u")
-    ts2.selectbox("Min (Start Terug)", minutes_list, key='t_start_m', format_func=lambda x: f"{x:02d}m")
-    
-    st.text("Einde shift")
-    te1, te2 = st.columns(2)
-    te1.selectbox("Uur (Einde Terug)", hours_list, key='t_einde_u', format_func=lambda x: f"{x:02d}u")
-    te2.selectbox("Min (Einde Terug)", minutes_list, key='t_einde_m', format_func=lambda x: f"{x:02d}m")
-    
-    st.radio("Feestdag?", ["JA", "NEE"], key='t_feestdag', horizontal=True)
-    st.checkbox("Zondag?", key='t_zondag')
-
-st.markdown("---")
+    st.markdown("---")
 
 st.subheader(f"📋 Gedetailleerde Uitsplitsing — Statuut: {stat}")
 
