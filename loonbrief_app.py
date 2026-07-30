@@ -62,10 +62,10 @@ Maak plaats voor de **ECHTE** loonbrief! Bereken hier snel, eerlijk en feilloos 
 hours_list = list(range(24))
 minutes_list = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
 
-# Functie om uren en overuren per afzonderlijke rit te berekenen
-def bereken_rit_uren(shift, start, einde):
+# Functie om netto tijd en pauze per rit te berekenen
+def bereken_netto_tijd(shift, start, einde):
     if shift == "H.L.P.":
-        return 0.0, 0.0, 0.0
+        return 0.0, 0.0
         
     s_uur = start.hour + start.minute / 60.0
     e_uur = einde.hour + einde.minute / 60.0
@@ -81,12 +81,9 @@ def bereken_rit_uren(shift, start, einde):
         pauze = 5.0 if totaal_duur > 5 else 0.0
         netto_tijd = max(0.0, totaal_duur - pauze)
         
-    werken = min(11.0, netto_tijd)
-    over_tijd = max(0.0, netto_tijd - 11.0)
-    
-    return werken, pauze, over_tijd
+    return netto_tijd, pauze
 
-# Loop door het aantal geselecteerde shiften en tel alles apart op
+# Loop door het aantal geselecteerde shiften en tel alles correct op
 totaal_werken = 0.0
 totaal_pauze = 0.0
 totaal_150 = 0.0
@@ -117,23 +114,41 @@ for i in range(1, st.session_state.aantal_shiften + 1):
     h_feestdag = st.session_state[f'h{i}_feestdag']
     t_feestdag = st.session_state[f't{i}_feestdag']
 
-    h_w, h_p, h_over = bereken_rit_uren(h_shift, h_start, h_einde)
-    t_w, t_p, t_over = bereken_rit_uren(t_shift, t_start, t_einde)
+    h_netto, h_pauze = bereken_netto_tijd(h_shift, h_start, h_einde)
+    t_netto, t_pauze = bereken_netto_tijd(t_shift, t_start, t_einde)
     
-    totaal_pauze += (h_p + t_p)
-    totaal_werken += (h_w + t_w)
+    totaal_pauze += (h_pauze + t_pauze)
     
-    # Heenrit overuren toewijzen op basis van eigen zondag/feestdag vinkje
-    if h_zondag or h_feestdag:
-        totaal_200 += h_over
-    else:
-        totaal_150 += h_over
+    # Als beide ritten in deze shift PRS zijn, tellen we de uren van die dag samen
+    if h_shift == "PRS" and t_shift == "PRS":
+        dag_netto = h_netto + t_netto
+        w_shift = min(11.0, dag_netto)
+        o_shift = max(0.0, dag_netto - 11.0)
         
-    # Terugrit overuren toewijzen op basis van eigen zondag/feestdag vinkje
-    if t_zondag or t_feestdag:
-        totaal_200 += t_over
+        totaal_werken += w_shift
+        
+        if h_zondag or t_zondag or h_feestdag or t_feestdag:
+            totaal_200 += o_shift
+        else:
+            totaal_150 += o_shift
     else:
-        totaal_150 += t_over
+        # Losse ritten / andere bestemmingen apart behandelen
+        h_w = min(11.0, h_netto) if h_shift != "H.L.P." else 0.0
+        h_o = max(0.0, h_netto - 11.0) if h_shift != "H.L.P." else 0.0
+        t_w = min(11.0, t_netto) if t_shift != "H.L.P." else 0.0
+        t_o = max(0.0, t_netto - 11.0) if t_shift != "H.L.P." else 0.0
+        
+        totaal_werken += (h_w + t_w)
+        
+        if h_zondag or h_feestdag:
+            totaal_200 += h_o
+        else:
+            totaal_150 += h_o
+            
+        if t_zondag or t_feestdag:
+            totaal_200 += t_o
+        else:
+            totaal_150 += t_o
         
     # Premies per rit optellen
     if h_shift != "H.L.P.":
