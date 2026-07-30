@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import time, date
+from datetime import time, date, timedelta
 
 st.set_page_config(page_title="Wagon Plastron - Looncalculator", layout="wide", page_icon="🚆")
 
@@ -130,6 +130,25 @@ def bereken_netto_tijd(shift, start_time, einde_time):
         netto_tijd = max(0.0, totaal_duur - pauze)
         
     return netto_tijd, pauze
+
+# Hulpfunctie om de datum van de terugrit te berekenen op basis van bestemming en regels
+def get_terugrit_date(h_date, h_shift):
+    if not isinstance(h_date, date):
+        return h_date
+    wd = h_date.weekday() # 0=Maandag, 4=Vrijdag, 5=Zaterdag, 6=Zondag
+    
+    if h_shift == "PRS":
+        if wd == 5: # Zaterdag heen -> terug op zondag
+            return h_date + timedelta(days=1)
+        return h_date # Anderen op dezelfde dag
+    elif h_shift == "BLN":
+        return h_date + timedelta(days=1) # Berlijn altijd volgende dag
+    elif h_shift in ["DD", "PRG"]:
+        if wd == 4: # Vrijdag heen -> terug op zondag (+2 dagen)
+            return h_date + timedelta(days=2)
+        return h_date + timedelta(days=1) # Anderen volgende dag
+    
+    return h_date
 
 hotel_actief_op_shift = 1
 if st.session_state.hotel == "JA":
@@ -295,7 +314,7 @@ st.markdown("---")
 for i in range(1, st.session_state.aantal_shiften + 1):
     with st.container(border=True):
         st.markdown(f"### 🔁 Shift / Reis {i}")
-        st.date_input(f"Datum van Reis {i}", key=f'shift_{i}_date', disabled=is_locked)
+        st.date_input(f"Datum van Reis {i} (Heenrit)", key=f'shift_{i}_date', disabled=is_locked)
         
         col1, col2 = st.columns(2)
 
@@ -325,21 +344,29 @@ for i in range(1, st.session_state.aantal_shiften + 1):
 
 st.markdown("---")
 
-# --- Weekagenda Overzicht (Maandag t/m Zondag) ---
+# --- Weekagenda Overzicht (Maandag t/m Zondag) met Heen- en Terugrit gescheiden ---
 st.subheader("📅 Weekagenda (Maandag — Zondag)")
 dagnamen = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag']
 week_cols = st.columns(7)
 
-# Map shiften per weekdag (0 = Maandag, 6 = Zondag)
 dag_dict = {dag: [] for dag in dagnamen}
 for i in range(1, st.session_state.aantal_shiften + 1):
-    d = st.session_state[f'shift_{i}_date']
-    dag_idx = d.weekday() # Maandag=0, Zondag=6
-    dag_naam = dagnamen[dag_idx]
+    h_date = st.session_state[f'shift_{i}_date']
+    h_shift = st.session_state[f'h{i}_shift']
+    t_shift = st.session_state[f't{i}_shift']
     
-    h_dest = st.session_state[f'h{i}_shift']
-    t_dest = st.session_state[f't{i}_shift']
-    dag_dict[dag_naam].append(f"Reis {i}: {h_dest} ➔ {t_dest}")
+    # Heenrit toevoegen
+    if h_shift != "H.L.P.":
+        h_wd = h_date.weekday()
+        h_dag_naam = dagnamen[h_wd]
+        dag_dict[h_dag_naam].append(f"R{i} Heen: BRU ➔ {h_shift}")
+        
+    # Terugrit toevoegen op basis van slimme datumregels
+    if t_shift != "H.L.P.":
+        t_date = get_terugrit_date(h_date, h_shift)
+        t_wd = t_date.weekday()
+        t_dag_naam = dagnamen[t_wd]
+        dag_dict[t_dag_naam].append(f"R{i} Terug: {t_shift} ➔ BRU")
 
 for idx, dag in enumerate(dagnamen):
     with week_cols[idx]:
