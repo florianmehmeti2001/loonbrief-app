@@ -9,7 +9,7 @@ standaard_waarden = {
     'statuut': 'Student',
     'uurloon': 0.0,
     'hotel': 'NEE',
-    'kledij_aantal': 0,
+    'kledij_aantal': 1,
     'declaraties': 0.0,
     # Heenrit
     'h_shift': 'H.L.P.', 'h_f1': 'Steward', 'h_f2': 'Geen',
