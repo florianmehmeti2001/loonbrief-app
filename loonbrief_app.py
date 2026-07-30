@@ -60,10 +60,10 @@ h_einde = time(st.session_state.h_einde_u, st.session_state.h_einde_m)
 t_start = time(st.session_state.t_start_u, st.session_state.t_start_m)
 t_einde = time(st.session_state.t_einde_u, st.session_state.t_einde_m)
 
-# 2. Urenberekening functie per rit
+# 2. Urenberekening functie per rit (inclusief correcte overuren berekening)
 def bereken_rit_uren(shift, start, einde):
     if shift == "H.L.P.":
-        return 0.0, 0.0
+        return 0.0, 0.0, 0.0
         
     s_uur = start.hour + start.minute / 60.0
     e_uur = einde.hour + einde.minute / 60.0
@@ -72,18 +72,20 @@ def bereken_rit_uren(shift, start, einde):
         totaal_duur = e_uur - s_uur
         if totaal_duur < 0: totaal_duur += 24
         pauze = 0.0
-        werken = max(0.0, totaal_duur - pauze)
+        netto_tijd = max(0.0, totaal_duur - pauze)
     else:
         totaal_duur = (24.0 - s_uur + e_uur) % 24
         if totaal_duur == 0: totaal_duur = 24.0
         pauze = 5.0 if totaal_duur > 5 else 0.0
         netto_tijd = max(0.0, totaal_duur - pauze)
-        werken = min(11.0, netto_tijd)
         
-    return werken, pauze
+    werken = min(11.0, netto_tijd)
+    over_tijd = max(0.0, netto_tijd - 11.0)
+    
+    return werken, pauze, over_tijd
 
-h_w, h_p = bereken_rit_uren(st.session_state.h_shift, h_start, h_einde)
-t_w, t_p = bereken_rit_uren(st.session_state.t_shift, t_start, t_einde)
+h_w, h_p, h_over = bereken_rit_uren(st.session_state.h_shift, h_start, h_einde)
+t_w, t_p, t_over = bereken_rit_uren(st.session_state.t_shift, t_start, t_einde)
 
 totaal_pauze = h_p + t_p
 
@@ -92,17 +94,13 @@ is_speciale_dag = (st.session_state.h_zondag or st.session_state.t_zondag) or \
 
 # Wettelijke logica: Als beide ritten PRS zijn (twee shiften op 1 dag), samentellen per dag (11u grens op dagtotaal)
 if st.session_state.h_shift == "PRS" and st.session_state.t_shift == "PRS":
-    totaal_dag_werken = h_w + t_w
-    totaal_werken = min(11.0, totaal_dag_werken)
-    over_tijd = max(0.0, totaal_dag_werken - 11.0)
+    h_netto = h_w + h_over
+    t_netto = t_w + t_over
+    totaal_dag_netto = h_netto + t_netto
+    totaal_werken = min(11.0, totaal_dag_netto)
+    over_tijd = max(0.0, totaal_dag_netto - 11.0)
 else:
-    h_over = max(0.0, h_w - 11.0) if st.session_state.h_shift != "H.L.P." else 0.0
-    t_over = max(0.0, t_w - 11.0) if st.session_state.t_shift != "H.L.P." else 0.0
-    
-    h_normaal = min(11.0, h_w) if st.session_state.h_shift != "H.L.P." else 0.0
-    t_normaal = min(11.0, t_w) if st.session_state.t_shift != "H.L.P." else 0.0
-    
-    totaal_werken = h_normaal + t_normaal
+    totaal_werken = h_w + t_w
     over_tijd = h_over + t_over
 
 if is_speciale_dag:
