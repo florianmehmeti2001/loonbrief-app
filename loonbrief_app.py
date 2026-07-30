@@ -48,6 +48,12 @@ with st.sidebar:
 
 st.title("🚆 Wagon Plastron — Looncalculator")
 
+# Grappig introductietekstje
+st.markdown("""
+**Genoeg gehad van al die 'mysterieuze' fouten in je loonbrief?** 🚂💶  
+Maak plaats voor de **ECHTE** loonbrief! Bereken hier snel, eerlijk en feilloos wat je bankrekening *echt* mag verwachten voor al dat harde werk op de sporen.
+""")
+
 # Bouw tijden op uit de Uur- en Minuut-selectie
 h_start = time(st.session_state.h_start_u, st.session_state.h_start_m)
 h_einde = time(st.session_state.h_einde_u, st.session_state.h_einde_m)
@@ -170,7 +176,7 @@ elif stat == "Student":
 
 totaal_loon_met_vakantie = netto_loon + totaal_vakantiegeld
 
-# --- Grote Totaal Weergave Bovenaan ---
+# --- Grote Totaal Weergave Bovenaan (Zonder Bruto) ---
 st.markdown("---")
 col_m1, col_m2, col_m3 = st.columns(3)
 col_m1.metric("💵 Totaal Loon (Netto + Vak)", f"€ {totaal_loon_met_vakantie:.2f}")
@@ -181,7 +187,7 @@ st.markdown("---")
 col1, col2 = st.columns(2)
 
 hours_list = list(range(24))
-minutes_list = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] # Je kan evt uitbreiden naar 0-59 als je dat liever hebt
+minutes_list = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
 
 with col1:
     st.subheader("🚆 Heenrit")
@@ -280,3 +286,11 @@ with tab4:
         df_vak = pd.DataFrame([
             ["Vakantiegeld", f"€ {totaal_vakantiegeld:.2f}"],
         ], columns=["Onderdeel", "Bedrag (€)"])
+        st.table(df_vak)
+
+# --- Credits Footer ---
+st.markdown("---")
+st.markdown(
+    "<p style='text-align: center; color: gray; font-size: 14px;'>Gemaakt door Florian 🚂 — Wagon Plastron Edition</p>",
+    unsafe_allow_html=True
+)
