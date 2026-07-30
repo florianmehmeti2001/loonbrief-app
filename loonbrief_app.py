@@ -62,7 +62,7 @@ Maak plaats voor de **ECHTE** loonbrief! Bereken hier snel, eerlijk en feilloos 
 hours_list = list(range(24))
 minutes_list = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
 
-# Functie om uren van één rit te berekenen
+# Functie om uren en overuren per afzonderlijke rit te berekenen
 def bereken_rit_uren(shift, start, einde):
     if shift == "H.L.P.":
         return 0.0, 0.0, 0.0
@@ -86,7 +86,7 @@ def bereken_rit_uren(shift, start, einde):
     
     return werken, pauze, over_tijd
 
-# Loop door het aantal geselecteerde shiften en tel alles op
+# Loop door het aantal geselecteerde shiften en tel alles apart op
 totaal_werken = 0.0
 totaal_pauze = 0.0
 totaal_150 = 0.0
@@ -121,27 +121,21 @@ for i in range(1, st.session_state.aantal_shiften + 1):
     t_w, t_p, t_over = bereken_rit_uren(t_shift, t_start, t_einde)
     
     totaal_pauze += (h_p + t_p)
+    totaal_werken += (h_w + t_w)
     
-    is_speciale_dag = h_zondag or t_zondag or h_feestdag or t_feestdag
-
-    if h_shift == "PRS" and t_shift == "PRS":
-        h_netto = h_w + h_over
-        t_netto = t_w + t_over
-        totaal_dag_netto = h_netto + t_netto
-        w_shift = min(11.0, totaal_dag_netto)
-        o_shift = max(0.0, totaal_dag_netto - 11.0)
+    # Heenrit overuren toewijzen op basis van eigen zondag/feestdag vinkje
+    if h_zondag or h_feestdag:
+        totaal_200 += h_over
     else:
-        w_shift = (min(11.0, h_w) if h_shift != "H.L.P." else 0.0) + (min(11.0, t_w) if t_shift != "H.L.P." else 0.0)
-        o_shift = (h_over if h_shift != "H.L.P." else 0.0) + (t_over if t_shift != "H.L.P." else 0.0)
+        totaal_150 += h_over
         
-    totaal_werken += w_shift
-    
-    if is_speciale_dag:
-        totaal_200 += o_shift
+    # Terugrit overuren toewijzen op basis van eigen zondag/feestdag vinkje
+    if t_zondag or t_feestdag:
+        totaal_200 += t_over
     else:
-        totaal_150 += o_shift
+        totaal_150 += t_over
         
-    # Premies per shift optellen
+    # Premies per rit optellen
     if h_shift != "H.L.P.":
         if h_f1 == "ATM": atm_count += 1
         if h_f1 == "TM": tm_count += 1
@@ -184,8 +178,6 @@ belastbaar = bruto + rsz + bv
 
 kledij = st.session_state.kledij_aantal * 2.20
 declaraties = st.session_state.declaraties
-
-# Dagvergoeding: €25 per reis + €25 extra bij hotelovernachting
 dagvergoeding = (st.session_state.aantal_shiften * 25.0) + (25.0 if st.session_state.hotel == "JA" else 0.0)
 
 netto_loon = belastbaar + kledij + declaraties + dagvergoeding
