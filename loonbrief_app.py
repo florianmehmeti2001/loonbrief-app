@@ -41,12 +41,9 @@ def reset_alle_velden():
 with st.sidebar:
     st.header("⚙️ Instellingen")
     
-    # De knop om de voorbeeldwaarden uit de foto's te vergrendelen/ontgrendelen
     st.checkbox("📌 Gebruik voorbeeld van foto's", key='gebruik_voorbeeld')
-    
     st.markdown("---")
 
-    # Als het voorbeeld is aangevinkt, overschrijven we de sessiewaarden direct
     if st.session_state.gebruik_voorbeeld:
         st.session_state.statuut = "Extra (Horeca)"
         st.session_state.uurloon = 15.97
@@ -74,7 +71,7 @@ with st.sidebar:
             st.session_state[f't{i}_einde_u'] = 21
             st.session_state[f't{i}_einde_m'] = 50
             st.session_state[f't{i}_feestdag'] = False
-            st.session_state[f't{i}_zondag'] = (i == 2) # Zondag aangevinkt bij terugrit shift 2
+            st.session_state[f't{i}_zondag'] = (i == 2) # Zondag bij terugrit shift 2
 
     is_locked = st.session_state.gebruik_voorbeeld
 
@@ -93,7 +90,6 @@ with st.sidebar:
 
 st.title("🚆 Wagon Plastron — Looncalculator")
 
-# Grappig introductietekstje
 st.markdown("""
 **Genoeg gehad van al die 'mysterieuze' fouten in je loonbrief?** 🚂💶  
 Maak plaats voor de **ECHTE** loonbrief! Bereken hier snel, eerlijk en feilloos wat je bankrekening *echt* mag verwachten voor al dat harde werk op de sporen.
@@ -102,7 +98,6 @@ Maak plaats voor de **ECHTE** loonbrief! Bereken hier snel, eerlijk en feilloos 
 hours_list = list(range(24))
 minutes_list = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
 
-# Functie om netto tijd en pauze per rit te berekenen
 def bereken_netto_tijd(shift, start, einde):
     if shift == "H.L.P.":
         return 0.0, 0.0
@@ -123,7 +118,18 @@ def bereken_netto_tijd(shift, start, einde):
         
     return netto_tijd, pauze
 
-# Loop door het aantal geselecteerde shiften en tel alles correct op
+# Bepaal automatisch op welke shift de hotelovernachting valt (waar zondag/feestdag staat, anders de laatste)
+hotel_actief_op_shift = 1
+if st.session_state.hotel == "JA":
+    gevonden = False
+    for i in range(1, st.session_state.aantal_shiften + 1):
+        if st.session_state[f'h{i}_zondag'] or st.session_state[f't{i}_zondag'] or st.session_state[f'h{i}_feestdag'] or st.session_state[f't{i}_feestdag']:
+            hotel_actief_op_shift = i
+            gevonden = True
+            break
+    if not gevonden:
+        hotel_actief_op_shift = st.session_state.aantal_shiften
+
 totaal_werken = 0.0
 totaal_pauze = 0.0
 totaal_150 = 0.0
@@ -159,19 +165,10 @@ for i in range(1, st.session_state.aantal_shiften + 1):
     
     totaal_pauze += (h_pauze + t_pauze)
     
-    # Als beide ritten in deze shift PRS zijn, tellen we de uren van die dag samen
-    if h_shift == "PRS" and t_shift == "PRS":
-        dag_netto = h_netto + t_netto
-        w_shift = min(11.0, dag_netto)
-        o_shift = max(0.0, dag_netto - 11.0)
-        
-        totaal_werken += w_shift
-        
-        if h_zondag or t_zondag or h_feestdag or t_feestdag:
-            totaal_200 += o_shift
-        else:
-            totaal_150 += o_shift
-    else:
+    is_overnachting_shift = (st.session_state.hotel == "JA" and i == hotel_actief_op_shift)
+    
+    if is_overnachting_shift:
+        # Overnachting = verspreid over 2 dagen, dus heen en terug apart beschouwen (geen dagtotaal samentelling)
         h_w = min(11.0, h_netto) if h_shift != "H.L.P." else 0.0
         h_o = max(0.0, h_netto - 11.0) if h_shift != "H.L.P." else 0.0
         t_w = min(11.0, t_netto) if t_shift != "H.L.P." else 0.0
@@ -179,17 +176,39 @@ for i in range(1, st.session_state.aantal_shiften + 1):
         
         totaal_werken += (h_w + t_w)
         
-        if h_zondag or h_feestdag:
-            totaal_200 += h_o
-        else:
-            totaal_150 += h_o
-            
-        if t_zondag or t_feestdag:
-            totaal_200 += t_o
-        else:
-            totaal_150 += t_o
+        if h_zondag or h_feestdag: totaal_200 += h_o
+        else: totaal_150 += h_o
         
-    # Premies per rit optellen
+        if t_zondag or t_feestdag: totaal_200 += t_o
+        else: totaal_150 += t_o
+    else:
+        # Normale shift: als beide ritten PRS zijn op dezelfde dag, tellen ze samen
+        if h_shift == "PRS" and t_shift == "PRS":
+            dag_netto = h_netto + t_netto
+            w_shift = min(11.0, dag_netto)
+            o_shift = max(0.0, dag_netto - 11.0)
+            
+            totaal_werken += w_shift
+            
+            if h_zondag or t_zondag or h_feestdag or t_feestdag:
+                totaal_200 += o_shift
+            else:
+                totaal_150 += o_shift
+        else:
+            h_w = min(11.0, h_netto) if h_shift != "H.L.P." else 0.0
+            h_o = max(0.0, h_netto - 11.0) if h_shift != "H.L.P." else 0.0
+            t_w = min(11.0, t_netto) if t_shift != "H.L.P." else 0.0
+            t_o = max(0.0, t_netto - 11.0) if t_shift != "H.L.P." else 0.0
+            
+            totaal_werken += (h_w + t_w)
+            
+            if h_zondag or h_feestdag: totaal_200 += h_o
+            else: totaal_150 += h_o
+            
+            if t_zondag or t_feestdag: totaal_200 += t_o
+            else: totaal_150 += t_o
+        
+    # Premies optellen
     if h_shift != "H.L.P.":
         if h_f1 == "ATM": atm_count += 1
         if h_f1 == "TM": tm_count += 1
@@ -236,7 +255,6 @@ dagvergoeding = (st.session_state.aantal_shiften * 25.0) + (25.0 if st.session_s
 
 netto_loon = belastbaar + kledij + declaraties + dagvergoeding
 
-# Vakantiegeld berekening per statuut
 vak_dubbel = 0.0
 vak_rsz = 0.0
 vak_enkel = 0.0
@@ -264,7 +282,6 @@ col_m2.metric("💰 Netto Loon", f"€ {netto_loon:.2f}")
 col_m3.metric("🏖️ Vakantiegeld", f"€ {totaal_vakantiegeld:.2f}")
 st.markdown("---")
 
-# Render invoerblokken dynamisch op basis van gekozen aantal shiften
 for i in range(1, st.session_state.aantal_shiften + 1):
     if st.session_state.aantal_shiften > 1:
         st.markdown(f"### 🔁 Shift / Reis {i}")
