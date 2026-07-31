@@ -54,7 +54,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 1. Standaard waarden dictionary
+# 1. Standaard waarden dictionary (datums automatisch opeenvolgend per reis)
 standaard_waarden = {
     'gebruik_voorbeeld': False,
     'statuut': 'Student',
@@ -70,7 +70,7 @@ for i in [1, 2, 3]:
         f'h{i}_shift': 'H.L.P.', f'h{i}_f1': 'Steward', f'h{i}_f2': 'Geen',
         f'h{i}_start_time': time(0, 0), f'h{i}_einde_time': time(0, 0),
         f'h{i}_zondag': False, f'h{i}_feestdag': False,
-        f'shift_{i}_date': date.today(),
+        f'shift_{i}_date': date.today() + timedelta(days=i-1),
         
         f't{i}_shift': 'H.L.P.', f't{i}_f1': 'Steward', f't{i}_f2': 'Geen',
         f't{i}_start_time': time(0, 0), f't{i}_einde_time': time(0, 0),
@@ -85,9 +85,8 @@ def reset_alle_velden():
     for key in standaard_waarden.keys():
         if key in st.session_state:
             del st.session_state[key]
-    # Zorg dat de datum na reset ook weer netjes op vandaag springt
     for i in [1, 2, 3]:
-        st.session_state[f'shift_{i}_date'] = date.today()
+        st.session_state[f'shift_{i}_date'] = date.today() + timedelta(days=i-1)
 
 # Bepaal of de ingelogde gebruiker admin rechten heeft
 is_admin = (st.session_state.get("role") == "admin")
@@ -109,6 +108,10 @@ with st.sidebar:
         st.session_state.hotel = "JA"
         st.session_state.kledij_aantal = 3
         st.session_state.declaraties = 18.00
+        
+        # Voorbeeld: Reis 1 is vandaag, Reis 2 is morgen
+        st.session_state['shift_1_date'] = date.today()
+        st.session_state['shift_2_date'] = date.today() + timedelta(days=1)
         
         for i in [1, 2]:
             st.session_state[f'h{i}_shift'] = "PRS"
@@ -381,8 +384,8 @@ for i in range(1, st.session_state.aantal_shiften + 1):
 
 st.markdown("---")
 
-# --- Weekagenda Overzicht (Maandag t/m Zondag) met Kleurcodes per Traject ---
-st.subheader("📅 Weekagenda (Maandag — Zondag)")
+# --- Weekagenda Overzicht (IngekorTE titel) ---
+st.subheader("📅 Weekagenda")
 dagnamen = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag']
 week_cols = st.columns(7)
 
