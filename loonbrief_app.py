@@ -4,10 +4,11 @@ from datetime import time, date, timedelta
 
 st.set_page_config(page_title="Wagon Plastron - Looncalculator", layout="wide", page_icon="🚆")
 
-# --- Wachtwoordbeveiliging ---
+# --- Wachtwoordbeveiliging (Multi-role) ---
 def check_password():
     if "password_correct" not in st.session_state:
         st.session_state["password_correct"] = False
+        st.session_state["role"] = None
 
     if st.session_state["password_correct"]:
         return True
@@ -17,8 +18,13 @@ def check_password():
     
     password = st.text_input("Wachtwoord", type="password")
     if st.button("Inloggen"):
-        if password == "wagonplastron":  # Je kunt dit wachtwoord hier aanpassen
+        if password == "12345678":  # Admin Wachtwoord
             st.session_state["password_correct"] = True
+            st.session_state["role"] = "admin"
+            st.rerun()
+        elif password == "352135":  # Normaal Gebruiker Wachtwoord
+            st.session_state["password_correct"] = True
+            st.session_state["role"] = "user"
             st.rerun()
         else:
             st.error("Onjuist wachtwoord. Probeer het opnieuw.")
@@ -79,15 +85,24 @@ def reset_alle_velden():
     for key in standaard_waarden.keys():
         if key in st.session_state:
             del st.session_state[key]
+    # Zorg dat de datum na reset ook weer netjes op vandaag springt
+    for i in [1, 2, 3]:
+        st.session_state[f'shift_{i}_date'] = date.today()
+
+# Bepaal of de ingelogde gebruiker admin rechten heeft
+is_admin = (st.session_state.get("role") == "admin")
 
 # Sidebar met instellingen
 with st.sidebar:
     st.header("⚙️ Instellingen")
     
-    st.checkbox("📌 Gebruik voorbeeld van foto's", key='gebruik_voorbeeld')
-    st.markdown("---")
+    if is_admin:
+        st.checkbox("📌 Gebruik voorbeeld van foto's (Admin)", key='gebruik_voorbeeld')
+        st.markdown("---")
+    else:
+        st.session_state.gebruik_voorbeeld = False
 
-    if st.session_state.gebruik_voorbeeld:
+    if is_admin and st.session_state.gebruik_voorbeeld:
         st.session_state.statuut = "Extra (Horeca)"
         st.session_state.uurloon = 15.97
         st.session_state.aantal_shiften = 2
@@ -96,7 +111,6 @@ with st.sidebar:
         st.session_state.declaraties = 18.00
         
         for i in [1, 2]:
-            st.session_state[f'shift_{i}_date'] = date.today()
             st.session_state[f'h{i}_shift'] = "PRS"
             st.session_state[f'h{i}_f1'] = "ATM"
             st.session_state[f'h{i}_f2'] = "Conducteur"
@@ -113,7 +127,7 @@ with st.sidebar:
             st.session_state[f't{i}_feestdag'] = False
             st.session_state[f't{i}_zondag'] = (i == 2)
 
-    is_locked = st.session_state.gebruik_voorbeeld
+    is_locked = (is_admin and st.session_state.gebruik_voorbeeld)
 
     st.selectbox("Kies je statuut", ["Student", "Flexi", "Extra (Horeca)"], key='statuut', disabled=is_locked)
     st.number_input("Basis Uurloon (€)", value=15.97, step=0.10, key='uurloon', disabled=is_locked)
