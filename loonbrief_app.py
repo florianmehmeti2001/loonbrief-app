@@ -1,8 +1,13 @@
-import streamlit as st 
+import streamlit as st
 import pandas as pd
 from datetime import time, date, timedelta
 
-st.set_page_config(page_title="Wagon Plastron - Looncalculator", layout="wide", page_icon="🚆")
+st.set_page_config(
+    page_title="Wagon Plastron - Looncalculator", 
+    layout="wide", 
+    page_icon="🚆", 
+    initial_sidebar_state="expanded"
+)
 
 # --- Wachtwoordbeveiliging (Multi-role) ---
 def check_password():
@@ -54,7 +59,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 1. Standaard waarden dictionary (datums automatisch opeenvolgend per reis)
+# 1. Standaard waarden dictionary
 standaard_waarden = {
     'gebruik_voorbeeld': False,
     'statuut': 'Student',
@@ -88,7 +93,6 @@ def reset_alle_velden():
     for i in [1, 2, 3]:
         st.session_state[f'shift_{i}_date'] = date.today() + timedelta(days=i-1)
 
-# Bepaal of de ingelogde gebruiker admin rechten heeft
 is_admin = (st.session_state.get("role") == "admin")
 
 # Sidebar met instellingen
@@ -109,7 +113,6 @@ with st.sidebar:
         st.session_state.kledij_aantal = 3
         st.session_state.declaraties = 18.00
         
-        # Voorbeeld: Reis 1 is vandaag, Reis 2 is morgen
         st.session_state['shift_1_date'] = date.today()
         st.session_state['shift_2_date'] = date.today() + timedelta(days=1)
         
@@ -350,7 +353,6 @@ col_m2.metric("💰 Netto Loon", f"€ {netto_loon:.2f}")
 col_m3.metric("🏖️ Vakantiegeld", f"€ {totaal_vakantiegeld:.2f}")
 st.markdown("---")
 
-# Render invoerblokken in mooie kaarten met datumselectie
 for i in range(1, st.session_state.aantal_shiften + 1):
     with st.container(border=True):
         st.markdown(f"### 🔁 Shift / Reis {i}")
@@ -384,7 +386,7 @@ for i in range(1, st.session_state.aantal_shiften + 1):
 
 st.markdown("---")
 
-# --- Weekagenda Overzicht (IngekorTE titel) ---
+# --- Weekagenda Overzicht ---
 st.subheader("📅 Weekagenda")
 dagnamen = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag']
 week_cols = st.columns(7)
