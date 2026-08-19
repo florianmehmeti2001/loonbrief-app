@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import time, date, timedelta
+from datetime import time, date, datetime, timedelta
 
 st.set_page_config(
     page_title="Wagon Plastron - Looncalculator", 
@@ -59,6 +59,25 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Hulpfunctie voor standaard terugrit datum
+def get_terugrit_date(h_date, h_shift):
+    if not isinstance(h_date, date):
+        return h_date
+    wd = h_date.weekday()
+    
+    if h_shift == "PRS":
+        if wd == 5:
+            return h_date + timedelta(days=1)
+        return h_date
+    elif h_shift == "BLN":
+        return h_date + timedelta(days=1)
+    elif h_shift in ["DD", "PRG"]:
+        if wd == 4:
+            return h_date + timedelta(days=2)
+        return h_date + timedelta(days=1)
+    
+    return h_date
+
 # 1. Standaard waarden dictionary
 standaard_waarden = {
     'gebruik_voorbeeld': False,
@@ -71,15 +90,17 @@ standaard_waarden = {
 }
 
 for i in [1, 2, 3]:
+    h_d = date.today() + timedelta(days=(i-1)*2)
     standaard_waarden.update({
         f'h{i}_shift': 'H.L.P.', f'h{i}_f1': 'Steward', f'h{i}_f2': 'Geen',
         f'h{i}_start_time': time(0, 0), f'h{i}_einde_time': time(0, 0),
         f'h{i}_zondag': False, f'h{i}_feestdag': False,
-        f'shift_{i}_date': date.today() + timedelta(days=i-1),
+        f'shift_{i}_date': h_d,
         
         f't{i}_shift': 'H.L.P.', f't{i}_f1': 'Steward', f't{i}_f2': 'Geen',
         f't{i}_start_time': time(0, 0), f't{i}_einde_time': time(0, 0),
         f't{i}_zondag': False, f't{i}_feestdag': False,
+        f't{i}_date': get_terugrit_date(h_d, 'H.L.P.'),
     })
 
 for key, val in standaard_waarden.items():
@@ -91,7 +112,9 @@ def reset_alle_velden():
         if key in st.session_state:
             del st.session_state[key]
     for i in [1, 2, 3]:
-        st.session_state[f'shift_{i}_date'] = date.today() + timedelta(days=i-1)
+        h_d = date.today() + timedelta(days=(i-1)*2)
+        st.session_state[f'shift_{i}_date'] = h_d
+        st.session_state[f't{i}_date'] = h_d
 
 is_admin = (st.session_state.get("role") == "admin")
 
@@ -114,7 +137,9 @@ with st.sidebar:
         st.session_state.declaraties = 18.00
         
         st.session_state['shift_1_date'] = date.today()
+        st.session_state['t1_date'] = date.today()
         st.session_state['shift_2_date'] = date.today() + timedelta(days=1)
+        st.session_state['t2_date'] = date.today() + timedelta(days=1)
         
         for i in [1, 2]:
             st.session_state[f'h{i}_shift'] = "PRS"
@@ -155,43 +180,26 @@ st.markdown("""
 Maak plaats voor de **ECHTE** loonbrief! Bereken hier snel, eerlijk en feilloos wat je bankrekening *echt* mag verwachten voor al dat harde werk op de sporen.
 """)
 
-def bereken_netto_tijd(shift, start_time, einde_time):
+def bereken_netto_tijd(shift, start_date, start_time, end_date, end_time):
     if shift == "H.L.P.":
         return 0.0, 0.0
         
-    s_uur = start_time.hour + start_time.minute / 60.0
-    e_uur = einde_time.hour + einde_time.minute / 60.0
+    start_dt = datetime.combine(start_date, start_time)
+    end_dt = datetime.combine(end_date, end_time)
+    
+    if end_dt < start_dt:
+        end_dt += timedelta(days=1)
+        
+    delta = end_dt - start_dt
+    totaal_duur = delta.total_seconds() / 3600.0
     
     if shift == "PRS":
-        totaal_duur = e_uur - s_uur
-        if totaal_duur < 0: totaal_duur += 24
         pauze = 0.0
-        netto_tijd = max(0.0, totaal_duur - pauze)
     else:
-        totaal_duur = (24.0 - s_uur + e_uur) % 24
-        if totaal_duur == 0: totaal_duur = 24.0
         pauze = 5.0 if totaal_duur > 5 else 0.0
-        netto_tijd = max(0.0, totaal_duur - pauze)
         
+    netto_tijd = max(0.0, totaal_duur - pauze)
     return netto_tijd, pauze
-
-def get_terugrit_date(h_date, h_shift):
-    if not isinstance(h_date, date):
-        return h_date
-    wd = h_date.weekday()
-    
-    if h_shift == "PRS":
-        if wd == 5:
-            return h_date + timedelta(days=1)
-        return h_date
-    elif h_shift == "BLN":
-        return h_date + timedelta(days=1)
-    elif h_shift in ["DD", "PRG"]:
-        if wd == 4:
-            return h_date + timedelta(days=2)
-        return h_date + timedelta(days=1)
-    
-    return h_date
 
 hotel_actief_op_shift = 1
 if st.session_state.hotel == "JA":
@@ -217,6 +225,9 @@ zondag_premie_aantal = 0
 feestdag_premie_aantal = 0
 
 for i in range(1, st.session_state.aantal_shiften + 1):
+    h_date = st.session_state[f'shift_{i}_date']
+    t_date = st.session_state[f't{i}_date']
+    
     h_start = st.session_state[f'h{i}_start_time']
     h_einde = st.session_state[f'h{i}_einde_time']
     t_start = st.session_state[f't{i}_start_time']
@@ -234,8 +245,9 @@ for i in range(1, st.session_state.aantal_shiften + 1):
     h_feestdag = st.session_state[f'h{i}_feestdag']
     t_feestdag = st.session_state[f't{i}_feestdag']
 
-    h_netto, h_pauze = bereken_netto_tijd(h_shift, h_start, h_einde)
-    t_netto, t_pauze = bereken_netto_tijd(t_shift, t_start, t_einde)
+    # Berekening met datums en tijden (ondersteunt shiften > 24u)
+    h_netto, h_pauze = bereken_netto_tijd(h_shift, h_date, h_start, h_date, h_einde)
+    t_netto, t_pauze = bereken_netto_tijd(t_shift, t_date, t_start, t_date, t_einde)
     
     totaal_pauze += (h_pauze + t_pauze)
     
@@ -353,15 +365,16 @@ col_m2.metric("💰 Netto Loon", f"€ {netto_loon:.2f}")
 col_m3.metric("🏖️ Vakantiegeld", f"€ {totaal_vakantiegeld:.2f}")
 st.markdown("---")
 
+# Render invoerblokken in mooie kaarten met datumselectie voor zowel heenrit als uitchecken
 for i in range(1, st.session_state.aantal_shiften + 1):
     with st.container(border=True):
         st.markdown(f"### 🔁 Shift / Reis {i}")
-        st.date_input(f"Datum van Reis {i} (Heenrit)", key=f'shift_{i}_date', disabled=is_locked)
         
         col1, col2 = st.columns(2)
 
         with col1:
             st.subheader("🚆 Heenrit")
+            st.date_input(f"Datum Heenrit (Reis {i})", key=f'shift_{i}_date', disabled=is_locked)
             st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key=f'h{i}_shift', disabled=is_locked)
             st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key=f'h{i}_f1', disabled=is_locked)
             st.selectbox("Functie 2", ["Conducteur", "Geen"], key=f'h{i}_f2', disabled=is_locked)
@@ -374,6 +387,18 @@ for i in range(1, st.session_state.aantal_shiften + 1):
 
         with col2:
             st.subheader("🚆 Terugrit")
+            
+            # Automatisch slimme datum voorstellen als h_shift of h_date wijzigt en niet locked is
+            curr_h_date = st.session_state.get(f'shift_{i}_date', date.today())
+            curr_h_shift = st.session_state.get(f'h{i}_shift', 'H.L.P.')
+            suggested_t_date = get_terugrit_date(curr_h_date, curr_h_shift)
+            
+            # Zorg dat t_date minimaal gelijk is aan suggested_t_date bij initiële waarde
+            if f't{i}_date' not in st.session_state:
+                st.session_state[f't{i}_date'] = suggested_t_date
+                
+            st.date_input(f"Datum uitchecken (Reis {i})", key=f't{i}_date', disabled=is_locked)
+            
             st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key=f't{i}_shift', disabled=is_locked)
             st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key=f't{i}_f1', disabled=is_locked)
             st.selectbox("Functie 2", ["Conducteur", "Geen"], key=f't{i}_f2', disabled=is_locked)
@@ -406,6 +431,7 @@ def get_agenda_styling(text):
 dag_dict = {dag: [] for dag in dagnamen}
 for i in range(1, st.session_state.aantal_shiften + 1):
     h_date = st.session_state[f'shift_{i}_date']
+    t_date = st.session_state[f't{i}_date']
     h_shift = st.session_state[f'h{i}_shift']
     t_shift = st.session_state[f't{i}_shift']
     
@@ -415,7 +441,6 @@ for i in range(1, st.session_state.aantal_shiften + 1):
         dag_dict[h_dag_naam].append(f"R{i}: BRU ➔ {h_shift}")
         
     if t_shift != "H.L.P.":
-        t_date = get_terugrit_date(h_date, h_shift)
         t_wd = t_date.weekday()
         t_dag_naam = dagnamen[t_wd]
         dag_dict[t_dag_naam].append(f"R{i}: {t_shift} ➔ BRU")
