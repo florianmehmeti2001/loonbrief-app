@@ -59,9 +59,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 1. Standaard waarden dictionary (met 4 datums per shift)
+# 1. Standaard waarden dictionary
 standaard_waarden = {
-    'gebruik_voorbeeld': False,
     'statuut': 'Student',
     'uurloon': 0.0,
     'hotel': 'NEE',
@@ -88,74 +87,100 @@ for key, val in standaard_waarden.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
+# Als admin inlogt, vul direct de specifieke waarden uit de screenshots in (onvergrendeld!)
+is_admin = (st.session_state.get("role") == "admin")
+if is_admin and "admin_loaded" not in st.session_state:
+    st.session_state.statuut = "Extra (Horeca)"
+    st.session_state.uurloon = 15.97
+    st.session_state.aantal_shiften = 2
+    st.session_state.hotel = "JA"
+    st.session_state.kledij_aantal = 4
+    st.session_state.declaraties = 3.00
+    
+    # Reis 1 (Berlijn)
+    st.session_state['h1_start_date'] = date(2026, 8, 11)
+    st.session_state['h1_einde_date'] = date(2026, 8, 12)
+    st.session_state['h1_shift'] = "BLN"
+    st.session_state['h1_f1'] = "TM"
+    st.session_state['h1_f2'] = "Conducteur"
+    st.session_state['h1_start_time'] = time(20, 40)
+    st.session_state['h1_einde_time'] = time(10, 50)
+    st.session_state['h1_zondag'] = False
+    st.session_state['h1_feestdag'] = False
+    
+    st.session_state['t1_start_date'] = date(2026, 8, 12)
+    st.session_state['t1_einde_date'] = date(2026, 8, 13)
+    st.session_state['t1_shift'] = "BLN"
+    st.session_state['t1_f1'] = "TM"
+    st.session_state['t1_f2'] = "Conducteur"
+    st.session_state['t1_start_time'] = time(16, 40)
+    st.session_state['t1_einde_time'] = time(8, 25)
+    st.session_state['t1_zondag'] = False
+    st.session_state['t1_feestdag'] = False
+
+    # Reis 2 (Praag)
+    st.session_state['h2_start_date'] = date(2026, 8, 14)
+    st.session_state['h2_einde_date'] = date(2026, 8, 15)
+    st.session_state['h2_shift'] = "PRG"
+    st.session_state['h2_f1'] = "ATM"
+    st.session_state['h2_f2'] = "Geen"
+    st.session_state['h2_start_time'] = time(19, 0)
+    st.session_state['h2_einde_time'] = time(14, 15)
+    st.session_state['h2_zondag'] = False
+    st.session_state['h2_feestdag'] = False
+    
+    st.session_state['t2_start_date'] = date(2026, 8, 16)
+    st.session_state['t2_einde_date'] = date(2026, 8, 17)
+    st.session_state['t2_shift'] = "PRG"
+    st.session_state['t2_f1'] = "ATM"
+    st.session_state['t2_f2'] = "Geen"
+    st.session_state['t2_start_time'] = time(16, 30)
+    st.session_state['t2_einde_time'] = time(23, 10)
+    st.session_state['t2_zondag'] = True
+    st.session_state['t2_feestdag'] = False
+    
+    st.session_state["admin_loaded"] = True
+
 def reset_alle_velden():
-    for key in standaard_waarden.keys():
-        if key in st.session_state:
-            del st.session_state[key]
+    for key, val in standaard_waarden.items():
+        st.session_state[key] = val
     for i in [1, 2, 3]:
         d_vandaag = date.today() + timedelta(days=(i-1)*2)
+        st.session_state[f'h{i}_shift'] = 'H.L.P.'
+        st.session_state[f'h{i}_f1'] = 'Steward'
+        st.session_state[f'h{i}_f2'] = 'Geen'
         st.session_state[f'h{i}_start_date'] = d_vandaag
         st.session_state[f'h{i}_einde_date'] = d_vandaag
+        st.session_state[f'h{i}_start_time'] = time(0, 0)
+        st.session_state[f'h{i}_einde_time'] = time(0, 0)
+        st.session_state[f'h{i}_zondag'] = False
+        st.session_state[f'h{i}_feestdag'] = False
+        
+        st.session_state[f't{i}_shift'] = 'H.L.P.'
+        st.session_state[f't{i}_f1'] = 'Steward'
+        st.session_state[f't{i}_f2'] = 'Geen'
         st.session_state[f't{i}_start_date'] = d_vandaag
         st.session_state[f't{i}_einde_date'] = d_vandaag
-
-is_admin = (st.session_state.get("role") == "admin")
+        st.session_state[f't{i}_start_time'] = time(0, 0)
+        st.session_state[f't{i}_einde_time'] = time(0, 0)
+        st.session_state[f't{i}_zondag'] = False
+        st.session_state[f't{i}_feestdag'] = False
 
 # Sidebar met instellingen
 with st.sidebar:
     st.header("⚙️ Instellingen")
-    
-    if is_admin:
-        st.checkbox("📌 Gebruik voorbeeld van foto's (Admin)", key='gebruik_voorbeeld')
-        st.markdown("---")
-    else:
-        st.session_state.gebruik_voorbeeld = False
 
-    if is_admin and st.session_state.gebruik_voorbeeld:
-        st.session_state.statuut = "Extra (Horeca)"
-        st.session_state.uurloon = 15.97
-        st.session_state.aantal_shiften = 2
-        st.session_state.hotel = "JA"
-        st.session_state.kledij_aantal = 3
-        st.session_state.declaraties = 18.00
-        
-        for i in [1, 2]:
-            d_shift = date.today() + timedelta(days=i-1)
-            st.session_state[f'h{i}_start_date'] = d_shift
-            st.session_state[f'h{i}_einde_date'] = d_shift
-            st.session_state[f't{i}_start_date'] = d_shift
-            st.session_state[f't{i}_einde_date'] = d_shift
-            
-            st.session_state[f'h{i}_shift'] = "PRS"
-            st.session_state[f'h{i}_f1'] = "ATM"
-            st.session_state[f'h{i}_f2'] = "Conducteur"
-            st.session_state[f'h{i}_start_time'] = time(7, 35)
-            st.session_state[f'h{i}_einde_time'] = time(12, 30)
-            st.session_state[f'h{i}_feestdag'] = False
-            st.session_state[f'h{i}_zondag'] = False
-            
-            st.session_state[f't{i}_shift'] = "PRS"
-            st.session_state[f't{i}_f1'] = "ATM"
-            st.session_state[f't{i}_f2'] = "Conducteur"
-            st.session_state[f't{i}_start_time'] = time(15, 10)
-            st.session_state[f't{i}_einde_time'] = time(21, 50)
-            st.session_state[f't{i}_feestdag'] = False
-            st.session_state[f't{i}_zondag'] = (i == 2)
-
-    is_locked = (is_admin and st.session_state.gebruik_voorbeeld)
-
-    st.selectbox("Kies je statuut", ["Student", "Flexi", "Extra (Horeca)"], key='statuut', disabled=is_locked)
-    st.number_input("Basis Uurloon (€)", value=15.97, step=0.10, key='uurloon', disabled=is_locked)
-    st.selectbox("Aantal reizen/shiften deze week", [1, 2, 3], key='aantal_shiften', disabled=is_locked)
-    st.radio("Hotelovernachting?", ["JA", "NEE"], key='hotel', disabled=is_locked, horizontal=True)
-    st.number_input("Aantal dagen kledijvergoeding", min_value=0, max_value=10, key='kledij_aantal', disabled=is_locked)
-    st.number_input("Declaraties (€)", min_value=0.0, step=1.0, key='declaraties', disabled=is_locked)
+    st.selectbox("Kies je statuut", ["Student", "Flexi", "Extra (Horeca)"], key='statuut')
+    st.number_input("Basis Uurloon (€)", value=15.97, step=0.10, key='uurloon')
+    st.selectbox("Aantal reizen/shiften deze week", [1, 2, 3], key='aantal_shiften')
+    st.radio("Hotelovernachting?", ["JA", "NEE"], key='hotel', horizontal=True)
+    st.number_input("Aantal dagen kledijvergoeding", min_value=0, max_value=10, key='kledij_aantal')
+    st.number_input("Declaraties (€)", min_value=0.0, step=1.0, key='declaraties')
     
     st.markdown("---")
-    if not is_locked:
-        if st.button("🧹 Reset alle cellen"):
-            reset_alle_velden()
-            st.rerun()
+    if st.button("🧹 Reset alle cellen"):
+        reset_alle_velden()
+        st.rerun()
 
 st.title("🚆 Wagon Plastron — Looncalculator")
 
@@ -350,7 +375,7 @@ col_m2.metric("💰 Netto Loon", f"€ {netto_loon:.2f}")
 col_m3.metric("🏖️ Vakantiegeld", f"€ {totaal_vakantiegeld:.2f}")
 st.markdown("---")
 
-# Render invoerblokken met telkens een start- en uitcheckdatum voor zowel heen- als terugrit
+# Render invoerblokken onvergrendeld
 for i in range(1, st.session_state.aantal_shiften + 1):
     with st.container(border=True):
         st.markdown(f"### 🔁 Shift / Reis {i}")
@@ -359,33 +384,33 @@ for i in range(1, st.session_state.aantal_shiften + 1):
 
         with col1:
             st.subheader("🚆 Heenrit")
-            st.date_input("Incheckdatum (Heen)", key=f'h{i}_start_date', disabled=is_locked)
-            st.date_input("Uitcheckdatum (Heen)", key=f'h{i}_einde_date', disabled=is_locked)
+            st.date_input("Incheckdatum (Heen)", key=f'h{i}_start_date')
+            st.date_input("Uitcheckdatum (Heen)", key=f'h{i}_einde_date')
             
-            st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key=f'h{i}_shift', disabled=is_locked)
-            st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key=f'h{i}_f1', disabled=is_locked)
-            st.selectbox("Functie 2", ["Conducteur", "Geen"], key=f'h{i}_f2', disabled=is_locked)
+            st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key=f'h{i}_shift')
+            st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key=f'h{i}_f1')
+            st.selectbox("Functie 2", ["Conducteur", "Geen"], key=f'h{i}_f2')
             
-            st.time_input("Start tijd (Heen)", key=f'h{i}_start_time', disabled=is_locked)
-            st.time_input("Einde tijd (Heen)", key=f'h{i}_einde_time', disabled=is_locked)
+            st.time_input("Start tijd (Heen)", key=f'h{i}_start_time')
+            st.time_input("Einde tijd (Heen)", key=f'h{i}_einde_time')
             
-            st.checkbox("Feestdag?", key=f'h{i}_feestdag', disabled=is_locked)
-            st.checkbox("Zondag?", key=f'h{i}_zondag', disabled=is_locked)
+            st.checkbox("Feestdag?", key=f'h{i}_feestdag')
+            st.checkbox("Zondag?", key=f'h{i}_zondag')
 
         with col2:
             st.subheader("🚆 Terugrit")
-            st.date_input("Incheckdatum (Terug)", key=f't{i}_start_date', disabled=is_locked)
-            st.date_input("Uitcheckdatum (Terug)", key=f't{i}_einde_date', disabled=is_locked)
+            st.date_input("Incheckdatum (Terug)", key=f't{i}_start_date')
+            st.date_input("Uitcheckdatum (Terug)", key=f't{i}_einde_date')
             
-            st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key=f't{i}_shift', disabled=is_locked)
-            st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key=f't{i}_f1', disabled=is_locked)
-            st.selectbox("Functie 2", ["Conducteur", "Geen"], key=f't{i}_f2', disabled=is_locked)
+            st.selectbox("Bestemming", ["H.L.P.", "PRG", "PRS", "BLN", "DD"], key=f't{i}_shift')
+            st.selectbox("Functie 1", ["Steward", "ATM", "TM"], key=f't{i}_f1')
+            st.selectbox("Functie 2", ["Conducteur", "Geen"], key=f't{i}_f2')
             
-            st.time_input("Start tijd (Terug)", key=f't{i}_start_time', disabled=is_locked)
-            st.time_input("Einde tijd (Terug)", key=f't{i}_einde_time', disabled=is_locked)
+            st.time_input("Start tijd (Terug)", key=f't{i}_start_time')
+            st.time_input("Einde tijd (Terug)", key=f't{i}_einde_time')
             
-            st.checkbox("Feestdag?", key=f't{i}_feestdag', disabled=is_locked)
-            st.checkbox("Zondag?", key=f't{i}_zondag', disabled=is_locked)
+            st.checkbox("Feestdag?", key=f't{i}_feestdag')
+            st.checkbox("Zondag?", key=f't{i}_zondag')
 
 st.markdown("---")
 
